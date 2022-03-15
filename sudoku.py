@@ -122,10 +122,60 @@ class Sudoku:
 
         return True
 
+    def remove_possibility(self, poss, row, col, cell_val):
+        poss[row][col].remove(cell_val)
+        if len(poss[row][col])==0:
+            return False
+        elif len(poss[row][col])==1:
+            return self.update_possibilities(poss,row,col)
+
+        return True
+
+
+    def update_possibilities(self, poss, row, col):
+        """ Update sets of possible values, after setting the cell at row and col """
+        cur_val=list(poss[row][col])[0]
+
+        # check for conflicting values in the row
+        for i in range(9):
+            if i != col:
+                if cur_val in poss[row][i]:
+                    if not self.remove_possibility(poss, row, i, cur_val):
+                        return False #setting cell makes the solution impossible
+
+        # check for conflicting values in the column
+        for i in range(9):
+            if i != row:
+                if cur_val in poss[i][col]:
+                    if not self.remove_possibility(poss, i, col, cur_val):
+                        return False
+
+        # check for conflicting values in the 3x3 square
+        sq_row = row // 3
+        sq_col = col // 3
+        for r in range(sq_row * 3, sq_row * 3 + 3):
+            for c in range(sq_col * 3, sq_col * 3 + 3):
+                if not (r == row and c == col):
+                    if cur_val in poss[r][c]:
+                        if not self.remove_possibility(poss, r, c, cur_val):
+                            return False
+
+        return True
+
+    def poss2list(self,poss):
+        res=[]
+        for row in poss:
+            tmp=[]
+            for cell in row:
+                tmp.append(list(cell)[0])
+            res.append(tmp)
+
+        return res
+
     def solve_board(self, shuffle_idx=True, shuffle_possibilities=True, nsolutions=1):
         """ Find solution(s) for the board"""
 
-        def try_cell(n):
+        def try_cell(n,poss):
             """ Resursively walk the empty cells and try different values """
 
             # decode index
@@ -133,18 +183,22 @@ class Sudoku:
             c = empty_idx[n] % 9
 
             # values to try for the cell
-            possibilities = self.cell_get_possibilities(r, c)
+            possibilities = list(poss[r][c])
             if shuffle_possibilities:
                 self.my_shuffle(possibilities)
 
             for i in possibilities:
-                self.state[r][c] = i
+                new_poss = copy.deepcopy(poss)
+                new_poss[r][c] = set()
+                new_poss[r][c].add(i)
+                if not self.update_possibilities(new_poss,r,c):
+                    continue
                 if n < len(empty_idx) - 1:
                     # try substituting numbers to the next cell
-                    try_cell(n + 1)
+                    try_cell(n + 1,new_poss)
                 else:
                     # solution found
-                    res.append(copy.deepcopy(self.state))
+                    res.append(self.poss2list(new_poss))
                     # stop, if we have to found only the first solution
                     if len(res) >= nsolutions:
                         break
@@ -153,7 +207,7 @@ class Sudoku:
                 if len(res) >= nsolutions:
                     break
 
-            # cleanup
+            # cleanup cell
             self.state[r][c] = 0
 
         # initialize the list of results
@@ -179,19 +233,29 @@ class Sudoku:
         if shuffle_idx:
             self.my_shuffle(empty_idx)
 
-        conflicts=[]
+        possibilities=[]
         for r in range(9):
             tmp=[]
             for c in range(9):
-                tmp.append([0]*9)
+                if self.state[r][c]!=0:
+                    cell_poss=set()
+                    cell_poss.add(self.state[r][c])
+                    tmp.append(cell_poss)
+                else:
+                    cell_poss=set(self.cell_get_possibilities(r,c))
+                    if len(cell_poss)==0:
+                        return res #can't solve this board
+                    tmp.append(cell_poss)
 
-            conflicts.append(tmp)
+            possibilities.append(tmp)
 
         for r in range(9):
             for c in range(9):
-                if self.state[r][c]!=0:
-                    add_conflicts(r,c,self.state[r][c])
-        try_cell(0)
+                if len(possibilities[r][c])==1:
+                    if not self.update_possibilities(possibilities,r,c):
+                        return res
+
+        try_cell(0,copy.deepcopy(possibilities))
 
         return res
 
@@ -204,25 +268,6 @@ class Sudoku:
                 best_idx=i+1
 
         return best_idx
-
-    #def clear_issolvable_cache(self):
-    #    self.issolvable={}
-
-    #def memo_nsolutions(self):
-    #    tmp = []
-    #    for row in self.state:
-    #        for cell in row:
-    #            tmp.append(cell)
-    #    k = tuple(tmp)
-    #    nsol = self.issolvable.get(k)
-    #    if (nsol==None):
-    #        solutions = self.solve_board(False, False, 2)
-    #        nsol=len(solutions)
-    #        self.issolvable[k]=nsol
-    #    else:
-    #        return nsol
-    #
-    #    return nsol
 
     def generate_board(self, ncells_leave=40, nboards=1, max_solve_calls=10000,fast_remove=0):
         """
@@ -264,7 +309,6 @@ class Sudoku:
             recursion_depth=[]
             #branches=[]
             for i in range(2):
-                #shuffle_len=self.my_rng()%(len(cells_idx)-n)
                 tmp = cells_idx[(n + 1):]
                 self.my_shuffle(tmp)
                 cells_idx[(n + 1):] = tmp
@@ -276,18 +320,6 @@ class Sudoku:
                     # cleanup
                     self.state[r][c] = old_value
                     return max(recursion_depth)
-
-            #if we approach desired number of given cells, try the best branch for 2 times more
-            #max_idx=self.max_index(recursion_depth)
-            #if 80-recursion_depth[max_idx]<ncells_leave+5:
-            #    cells_idx[(n + 1):] = branches[max_idx]
-            #    for i in range(3):
-            #        depth = remove_cell(n + 1)
-            #        recursion_depth.append(depth)
-            #        if solve_calls > max_solve_calls or len(res) == nboards:
-            #            # cleanup
-            #            self.state[r][c] = old_value
-            #            return max(recursion_depth)
 
             # cleanup
             self.state[r][c] = old_value
@@ -352,22 +384,35 @@ if __name__ == "__main__":
     sud.state[2][8] = 7
     mytest.test(not sud.board_has_no_conflicts())
 
-    test_board = [
-        [2, 5, 0, 0, 8, 9, 3, 1, 6],
-        [1, 0, 0, 6, 0, 2, 0, 5, 7],
-        [3, 0, 8, 7, 0, 1, 4, 0, 0],
-        [5, 7, 2, 0, 1, 8, 6, 3, 0],
-        [8, 0, 0, 5, 0, 0, 1, 0, 9],
-        [9, 0, 6, 3, 4, 7, 2, 0, 5],
-        [0, 8, 0, 2, 9, 3, 7, 6, 0],
-        [0, 3, 0, 0, 6, 0, 5, 0, 0],
-        [6, 2, 1, 0, 0, 5, 9, 4, 3]
+    # test_board = [
+    #     [2, 5, 0, 0, 8, 9, 3, 1, 6],
+    #     [1, 0, 0, 6, 0, 2, 0, 5, 7],
+    #     [3, 0, 8, 7, 0, 1, 4, 0, 0],
+    #     [5, 7, 2, 0, 1, 8, 6, 3, 0],
+    #     [8, 0, 0, 5, 0, 0, 1, 0, 9],
+    #     [9, 0, 6, 3, 4, 7, 2, 0, 5],
+    #     [0, 8, 0, 2, 9, 3, 7, 6, 0],
+    #     [0, 3, 0, 0, 6, 0, 5, 0, 0],
+    #     [6, 2, 1, 0, 0, 5, 9, 4, 3]
+    # ]
+    field_hard = [
+        [0, 0, 1, 0, 0, 0, 2, 0, 0],
+        [0, 3, 0, 0, 0, 0, 0, 4, 0],
+        [5, 0, 0, 0, 3, 0, 0, 0, 6],
+        [0, 0, 0, 1, 0, 7, 0, 0, 0],
+        [0, 4, 0, 0, 0, 0, 0, 8, 0],
+        [0, 0, 0, 9, 0, 2, 0, 0, 0],
+        [3, 0, 0, 0, 0, 0, 0, 0, 8],
+        [0, 6, 0, 0, 5, 0, 0, 3, 0],
+        [0, 0, 2, 0, 0, 0, 7, 0, 0],
     ]
-    sud = Sudoku(test_board)
+    print("Solving field_hard")
+    sud = Sudoku(field_hard)
     # sud.rng = random.Random(1234)
-    solutions = sud.solve_board(False, False, True)  # no randomization
+    solutions = sud.solve_board(False, False, 5)  # no randomization
     print(solutions)
 
+    print("Solving field with more than 1 solution")
     test_board = [
         [2, 5, 0, 0, 8, 9, 3, 1, 6],
         [1, 0, 0, 6, 0, 2, 0, 5, 7],
@@ -386,7 +431,7 @@ if __name__ == "__main__":
     for s in solutions:
         print(s)
 
-    # try to generate new filled board from scratch
+    print("try to generate new filled board from scratch")
     sud = Sudoku()
     sud.rnd_seed = 1234
     #sud.state[0]=list(range(1,10))
@@ -394,41 +439,13 @@ if __name__ == "__main__":
     solutions = sud.solve_board(False, True, 1)  # shuffle only possibilities, stop after the first solution
     print(solutions)
 
-    print("Trying to generate sudoku's with 24 given")
+    print("Trying to generate sudoku's with 22 given")
     for i in range(50):
         sud.clear()
         solutions = sud.solve_board(False, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board(24,1,1000,40);
+        boards = sud.generate_board(22,1,1000,40);
         for b in boards:
             print(b)
             tst_sud = Sudoku(b)
             print(sud.solve_board(False, False, 5))
-
-    #[[0, 0, 0, 0, 0, 0, 0, 5, 6],
-    # [0, 7, 0, 0, 3, 0, 0, 0, 9],
-    # [3, 5, 0, 0, 0, 0, 0, 0, 0],
-    # [0, 0, 1, 0, 2, 0, 8, 0, 0],
-    # [0, 3, 0, 8, 0, 0, 0, 6, 1],
-    # [0, 0, 0, 0, 0, 5, 0, 7, 0],
-    # [1, 6, 0, 9, 0, 0, 0, 0, 0],
-    # [0, 0, 0, 0, 4, 0, 0, 0, 0],
-    # [8, 0, 5, 7, 0, 0, 0, 0, 0]]
-
-    #print("Trying to generate more sudoku's with 23 given")
-    #sud = Sudoku([[9, 1, 8, 4, 7, 2, 3, 5, 6],
-    #              [4, 7, 2, 5, 3, 6, 1, 8, 9],
-    #              [3, 5, 6, 1, 8, 9, 2, 4, 7],
-    #              [5, 4, 1, 6, 2, 7, 8, 9, 3],
-    #              [2, 3, 7, 8, 9, 4, 5, 6, 1],
-    #              [6, 8, 9, 3, 1, 5, 4, 7, 2],
-    #              [1, 6, 4, 9, 5, 3, 7, 2, 8],
-    #              [7, 9, 3, 2, 4, 8, 6, 1, 5],
-    #              [8, 2, 5, 7, 6, 1, 9, 3, 4]]
-    #             )
-    #for i in range(5):
-    #    boards = sud.generate_board(23,1,2000,40);
-    #    for b in boards:
-    #        print(b)
-    #        tst_sud = Sudoku(b)
-    #        print(sud.solve_board(False, False, 5))
