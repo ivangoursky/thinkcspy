@@ -323,7 +323,9 @@ class Sudoku:
             self.state[r][c] = 0
             (nsol,cache_hit)=self.memo_nsolutions()
             nonlocal solve_calls
-            solve_calls += 1
+            if not cache_hit:
+                solve_calls += 1
+
             if nsol == 1:
                 # board generated
                 if 80 - n == ncells_leave:
@@ -338,38 +340,49 @@ class Sudoku:
                 return n-1
 
             if solve_calls > max_solve_calls:
+                #print("Reached maximum allowed calls to solve_board")
                 # cleanup
                 self.state[r][c] = old_value
                 return n
 
             # make few tries for the left cells
             recursion_depth=[]
-            cells_to_remove = 80 - n - ncells_leave
-            if 80-n<=25:
-                if cache_hit:
-                    return n #full search on this combination already done
-                ntries=80-n
+            ntries = 80 - n
+            full_search = False
+            success_thresh=2
+            if 80-n<=27:
                 full_search=True
-            else:
-                ntries=2
-                full_search=False
 
+            if not full_search:
+                tmplist = cells_idx[(n + 1):]
+                self.my_shuffle(tmplist)
+                cells_idx[(n + 1):] = tmplist
+            elif not cache_hit:
+                # cleanup
+                self.state[r][c] = old_value
+                return n  # don't try with the same board twice
+
+            nsuccess=0
             for i in range(ntries):
-                if not full_search:
-                    tmp = cells_idx[(n + 1):]
-                    self.my_shuffle(tmp)
-                    cells_idx[(n + 1):] = tmp
-                else:
-                    tmp=cells_idx[n+1]
-                    cells_idx[n+1]=cells_idx[n+1+i]
-                    cells_idx[n+1+i]=tmp
+                tmp=cells_idx[n+1]
+                cells_idx[n+1]=cells_idx[n+1+i]
+                cells_idx[n+1+i]=tmp
 
                 depth = remove_cell(n + 1)
+
                 recursion_depth.append(depth)
                 if solve_calls > max_solve_calls or len(res) == nboards:
                     # cleanup
                     self.state[r][c] = old_value
                     return max(recursion_depth)
+
+                if not full_search:
+                    if depth>n:
+                        #stop if we aren't doing full search, and successfully tried to clear
+                        # threshold amount of cells
+                        nsuccess+=1
+                        if nsuccess==success_thresh:
+                            break
 
             # cleanup
             self.state[r][c] = old_value
@@ -489,15 +502,32 @@ if __name__ == "__main__":
     solutions = sud.solve_board(False, True, 1)  # shuffle only possibilities, stop after the first solution
     print(solutions)
 
-    print("Trying to generate sudoku's with 20 given")
+    ngiven=21
+    print("Trying to generate sudoku's with {0} given".format(ngiven))
     for i in range(50):
         print("Iteration: ",i)
         sud.clear()
-        sud.state[0]=list(range(1,10))
-        sud.my_shuffle(sud.state[0])
+        sq1=list(range(1,10))
+        sud.my_shuffle(sq1)
+        sq2 = list(range(1, 10))
+        sud.my_shuffle(sq2)
+        sq3 = list(range(1, 10))
+        sud.my_shuffle(sq3)
+
+        sud.state=[
+            [sq1[0], sq1[1], sq1[2], 0, 0, 0, 0, 0, 0],
+            [sq1[3], sq1[4], sq1[5], 0, 0, 0, 0, 0, 0],
+            [sq1[6], sq1[7], sq1[8], 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, sq2[0], sq2[1], sq2[2], 0, 0, 0],
+            [0, 0, 0, sq2[3], sq2[4], sq2[5], 0, 0, 0],
+            [0, 0, 0, sq2[6], sq2[7], sq2[8], 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, sq3[0], sq3[1], sq3[2]],
+            [0, 0, 0, 0, 0, 0, sq3[3], sq3[4], sq3[5]],
+            [0, 0, 0, 0, 0, 0, sq3[6], sq3[7], sq3[8]],
+        ]
         solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board(20,1,100000,20);
+        boards = sud.generate_board(ngiven,1,10000,10);
         for b in boards:
             print(b)
             tst_sud = Sudoku(b)
