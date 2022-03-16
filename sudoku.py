@@ -188,11 +188,16 @@ class Sudoku:
                 self.my_shuffle(possibilities)
 
             for i in possibilities:
-                new_poss = copy.deepcopy(poss)
-                new_poss[r][c] = set()
-                new_poss[r][c].add(i)
-                if not self.update_possibilities(new_poss,r,c):
-                    continue
+                if len(possibilities)>1:
+                    new_poss = copy.deepcopy(poss)
+                    new_poss[r][c] = set()
+                    new_poss[r][c].add(i)
+
+                    if not self.update_possibilities(new_poss,r,c):
+                        continue
+                else:
+                    new_poss=poss #!!!Assume we won't try to substitute other values
+
                 if n < len(empty_idx) - 1:
                     # try substituting numbers to the next cell
                     try_cell(n + 1,new_poss)
@@ -269,6 +274,25 @@ class Sudoku:
 
         return best_idx
 
+    def clear_issolvable_cache(self):
+       self.issolvable={}
+
+    def memo_nsolutions(self):
+       tmp = []
+       for row in self.state:
+           for cell in row:
+               tmp.append(cell)
+       k = tuple(tmp)
+       nsol = self.issolvable.get(k)
+       if (nsol==None):
+           solutions = self.solve_board(False, False, 2)
+           nsol=len(solutions)
+           self.issolvable[k]=nsol
+       else:
+           return (nsol, True)
+
+       return (nsol, False)
+
     def generate_board(self, ncells_leave=40, nboards=1, max_solve_calls=10000,fast_remove=0):
         """
         Generate a board with one solution, by removing cells one by one from the current board.
@@ -285,7 +309,7 @@ class Sudoku:
 
             old_value = self.state[r][c]
             self.state[r][c] = 0
-            nsol=len(self.solve_board(False, False, 2))
+            (nsol,cache_hit)=self.memo_nsolutions()
             nonlocal solve_calls
             solve_calls += 1
             if nsol == 1:
@@ -298,6 +322,7 @@ class Sudoku:
             else:
                 # cleanup
                 self.state[r][c] = old_value
+                #print("Reached cells: ",81-n)
                 return n-1
 
             if solve_calls > max_solve_calls:
@@ -305,17 +330,30 @@ class Sudoku:
                 self.state[r][c] = old_value
                 return n
 
-            # make 2 tries for the left cells
+            # make few tries for the left cells
             recursion_depth=[]
-            #branches=[]
-            for i in range(2):
-                tmp = cells_idx[(n + 1):]
-                self.my_shuffle(tmp)
-                cells_idx[(n + 1):] = tmp
+            cells_to_remove = 80 - n - ncells_leave
+            if 80-n<=25:
+                if cache_hit:
+                    return n #full search on this combination already done
+                ntries=80-n
+                full_search=True
+            else:
+                ntries=2
+                full_search=False
+
+            for i in range(ntries):
+                if not full_search:
+                    tmp = cells_idx[(n + 1):]
+                    self.my_shuffle(tmp)
+                    cells_idx[(n + 1):] = tmp
+                else:
+                    tmp=cells_idx[n+1]
+                    cells_idx[n+1]=cells_idx[n+1+i]
+                    cells_idx[n+1+i]=tmp
 
                 depth = remove_cell(n + 1)
                 recursion_depth.append(depth)
-                #branches.append(tmp)
                 if solve_calls > max_solve_calls or len(res) == nboards:
                     # cleanup
                     self.state[r][c] = old_value
@@ -325,7 +363,7 @@ class Sudoku:
             self.state[r][c] = old_value
             return max(recursion_depth)
 
-        #self.clear_issolvable_cache()
+        self.clear_issolvable_cache()
         cells_idx = list(range(81))
         if fast_remove>0 and fast_remove<=(81-ncells_leave):
             success = False
@@ -439,12 +477,15 @@ if __name__ == "__main__":
     solutions = sud.solve_board(False, True, 1)  # shuffle only possibilities, stop after the first solution
     print(solutions)
 
-    print("Trying to generate sudoku's with 22 given")
+    print("Trying to generate sudoku's with 21 given")
     for i in range(50):
+        print("Iteration: ",i)
         sud.clear()
-        solutions = sud.solve_board(False, True, 1)
+        sud.state[0]=list(range(1,10))
+        sud.my_shuffle(sud.state[0])
+        solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board(22,1,1000,40);
+        boards = sud.generate_board(21,1,100000,20);
         for b in boards:
             print(b)
             tst_sud = Sudoku(b)
