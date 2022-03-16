@@ -1,6 +1,7 @@
 import math
-import sys
+
 import mytest
+
 
 def eratosphen_primes(maxn):
     """ Find primes up to maxn using Eratosphenes sieve"""
