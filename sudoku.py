@@ -251,9 +251,6 @@ class Sudoku:
                 if len(res) >= nsolutions:
                     break
 
-            # cleanup cell
-            self.state[r][c] = 0
-
         # initialize the list of results
         res = []
 
