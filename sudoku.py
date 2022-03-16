@@ -4,6 +4,34 @@ import mytest
 import math
 
 
+def poss2list(poss):
+    res=[]
+    for row in poss:
+        tmp=[]
+        for cell in row:
+            tmp.append(list(cell)[0])
+        res.append(tmp)
+
+    return res
+
+
+def make_possibilities_undo(poss, undo):
+    for (rc,restore) in undo.items():
+        (r,c)=rc
+        poss[r][c]=restore
+
+
+def max_index(x):
+    best=x[0]
+    best_idx=0
+    for i in range(len(x)-1):
+        if (x[i+1]>best):
+            best=x[i+1]
+            best_idx=i+1
+
+    return best_idx
+
+
 class Sudoku:
     """ Class for 9x9 Sudoku board manipulation (standard rules) """
 
@@ -34,7 +62,6 @@ class Sudoku:
     def my_rng(self):
         self.rnd_seed = (self.rnd_seed*1103515245)%2147483648
         return self.rnd_seed
-
 
     def my_shuffle(self,x):
         l=len(x)
@@ -122,17 +149,19 @@ class Sudoku:
 
         return True
 
-    def remove_possibility(self, poss, row, col, cell_val):
+    def remove_possibility(self, poss, row, col, cell_val, undo):
+        if undo.get((row, col)) is None:
+            undo[(row,col)]=set(poss[row][col]) #make a copy!
+
         poss[row][col].remove(cell_val)
         if len(poss[row][col])==0:
             return False
         elif len(poss[row][col])==1:
-            return self.update_possibilities(poss,row,col)
+            return self.update_possibilities(poss, row, col, undo)
 
         return True
 
-
-    def update_possibilities(self, poss, row, col):
+    def update_possibilities(self, poss, row, col, undo):
         """ Update sets of possible values, after setting the cell at row and col """
         cur_val=list(poss[row][col])[0]
 
@@ -140,14 +169,14 @@ class Sudoku:
         for i in range(9):
             if i != col:
                 if cur_val in poss[row][i]:
-                    if not self.remove_possibility(poss, row, i, cur_val):
+                    if not self.remove_possibility(poss, row, i, cur_val, undo):
                         return False #setting cell makes the solution impossible
 
         # check for conflicting values in the column
         for i in range(9):
             if i != row:
                 if cur_val in poss[i][col]:
-                    if not self.remove_possibility(poss, i, col, cur_val):
+                    if not self.remove_possibility(poss, i, col, cur_val, undo):
                         return False
 
         # check for conflicting values in the 3x3 square
@@ -157,20 +186,10 @@ class Sudoku:
             for c in range(sq_col * 3, sq_col * 3 + 3):
                 if not (r == row and c == col):
                     if cur_val in poss[r][c]:
-                        if not self.remove_possibility(poss, r, c, cur_val):
+                        if not self.remove_possibility(poss, r, c, cur_val, undo):
                             return False
 
         return True
-
-    def poss2list(self,poss):
-        res=[]
-        for row in poss:
-            tmp=[]
-            for cell in row:
-                tmp.append(list(cell)[0])
-            res.append(tmp)
-
-        return res
 
     def solve_board(self, shuffle_idx=True, shuffle_possibilities=True, nsolutions=1):
         """ Find solution(s) for the board"""
@@ -188,25 +207,27 @@ class Sudoku:
                 self.my_shuffle(possibilities)
 
             for i in possibilities:
-                if len(possibilities)>1:
-                    new_poss = copy.deepcopy(poss)
-                    new_poss[r][c] = set()
-                    new_poss[r][c].add(i)
+                undo={}
+                undo[(r,c)]=poss[r][c]
+                poss[r][c] = set()
+                poss[r][c].add(i)
 
-                    if not self.update_possibilities(new_poss,r,c):
-                        continue
-                else:
-                    new_poss=poss #!!!Assume we won't try to substitute other values
+                if not self.update_possibilities(poss,r,c,undo):
+                    make_possibilities_undo(poss,undo)
+                    continue
 
                 if n < len(empty_idx) - 1:
                     # try substituting numbers to the next cell
-                    try_cell(n + 1,new_poss)
+                    try_cell(n + 1,poss)
                 else:
                     # solution found
-                    res.append(self.poss2list(new_poss))
+                    res.append(poss2list(poss))
                     # stop, if we have to found only the first solution
                     if len(res) >= nsolutions:
+                        make_possibilities_undo(poss, undo)
                         break
+
+                make_possibilities_undo(poss, undo)
 
                 # stop trying possibilities, if we need only one solution, and have found it deeper in the recursion
                 if len(res) >= nsolutions:
@@ -257,22 +278,13 @@ class Sudoku:
         for r in range(9):
             for c in range(9):
                 if len(possibilities[r][c])==1:
-                    if not self.update_possibilities(possibilities,r,c):
+                    dummy={}
+                    if not self.update_possibilities(possibilities,r,c,dummy):
                         return res
 
-        try_cell(0,copy.deepcopy(possibilities))
+        try_cell(0,possibilities)
 
         return res
-
-    def max_index(self,x):
-        best=x[0]
-        best_idx=0
-        for i in range(len(x)-1):
-            if (x[i+1]>best):
-                best=x[i+1]
-                best_idx=i+1
-
-        return best_idx
 
     def clear_issolvable_cache(self):
        self.issolvable={}
@@ -477,7 +489,7 @@ if __name__ == "__main__":
     solutions = sud.solve_board(False, True, 1)  # shuffle only possibilities, stop after the first solution
     print(solutions)
 
-    print("Trying to generate sudoku's with 21 given")
+    print("Trying to generate sudoku's with 20 given")
     for i in range(50):
         print("Iteration: ",i)
         sud.clear()
@@ -485,7 +497,7 @@ if __name__ == "__main__":
         sud.my_shuffle(sud.state[0])
         solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board(21,1,100000,20);
+        boards = sud.generate_board(20,1,100000,20);
         for b in boards:
             print(b)
             tst_sud = Sudoku(b)
