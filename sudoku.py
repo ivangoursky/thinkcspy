@@ -198,7 +198,7 @@ class Sudoku:
             """ Resursively walk the empty cells and try different values """
 
             #look for the cell with minimum possibilities
-            min_poss=10;
+            min_poss=10
             min_poss_idx=-1
             for i in range(n,len(empty_idx)):
                 r = empty_idx[i] // 9
@@ -367,8 +367,8 @@ class Sudoku:
             recursion_depth=[]
             ntries = 80 - n
             full_search = False
-            success_thresh=3
-            if 80-n<=27:
+
+            if 80-n<=25:
                 full_search=True
 
             if full_search and cache_hit:
@@ -400,7 +400,7 @@ class Sudoku:
                         #stop if we aren't doing full search, and successfully tried to clear
                         # threshold amount of cells
                         nsuccess+=1
-                        if nsuccess==success_thresh:
+                        if nsuccess==3:
                             break
 
             # cleanup
@@ -521,7 +521,7 @@ if __name__ == "__main__":
     solutions = sud.solve_board(False, True, 1)  # shuffle only possibilities, stop after the first solution
     print(solutions)
 
-    ngiven=21
+    ngiven=22
     print("Trying to generate sudoku's with {0} given".format(ngiven))
     for i in range(50):
         print("Iteration: ",i)
