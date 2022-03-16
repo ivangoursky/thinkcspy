@@ -197,6 +197,24 @@ class Sudoku:
         def try_cell(n,poss):
             """ Resursively walk the empty cells and try different values """
 
+            #look for the cell with minimum possibilities
+            min_poss=10;
+            min_poss_idx=-1
+            for i in range(n,len(empty_idx)):
+                r = empty_idx[i] // 9
+                c = empty_idx[i] % 9
+                l=len(poss[r][c])
+                if l<min_poss:
+                    min_poss=l
+                    min_poss_idx=i
+
+                if l<=2:
+                    break
+
+            tmp=empty_idx[n]
+            empty_idx[n]=empty_idx[min_poss_idx]
+            empty_idx[min_poss_idx]=tmp
+
             # decode index
             r = empty_idx[n] // 9
             c = empty_idx[n] % 9
@@ -349,18 +367,19 @@ class Sudoku:
             recursion_depth=[]
             ntries = 80 - n
             full_search = False
-            success_thresh=2
+            success_thresh=3
             if 80-n<=27:
                 full_search=True
+
+            if full_search and cache_hit:
+                # cleanup
+                self.state[r][c] = old_value
+                return n  # don't try with the same board twice
 
             if not full_search:
                 tmplist = cells_idx[(n + 1):]
                 self.my_shuffle(tmplist)
                 cells_idx[(n + 1):] = tmplist
-            elif not cache_hit:
-                # cleanup
-                self.state[r][c] = old_value
-                return n  # don't try with the same board twice
 
             nsuccess=0
             for i in range(ntries):
