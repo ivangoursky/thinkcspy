@@ -2,6 +2,7 @@ import pygame
 import sudoku
 import copy
 import time
+import random
 from tkinter import messagebox
 
 def generate_one_field(ngiven=23, randseed = None):
@@ -38,12 +39,14 @@ def generate_one_field(ngiven=23, randseed = None):
 
     return []
 
+
 def draw_square(surf,ulx,uly,col,sz,lwd):
     pygame.draw.polygon(surf, col, (
         (ulx, uly),
         (ulx + sz, uly),
         (ulx + sz, uly + sz),
         (ulx, uly + sz)), lwd)
+
 
 def display_help():
     messagebox.showinfo(
@@ -61,6 +64,7 @@ def display_help():
         """
     )
 
+
 class SudokuField:
     def __init__(self, field_sz, sq_sz):
         self.field_sz = field_sz
@@ -68,12 +72,23 @@ class SudokuField:
         self.selection = None
         self.pos = None
         self.randseed = None
+        self.cell_px = None
+        self.field_px = None
+        self.sudoku_number=""
 
     def generate(self,ngiven=25):
-        field = generate_one_field(ngiven,self.randseed)
+        if self.randseed is not None:
+            randseed = self.randseed
+        else:
+            rng = random.Random()
+            randseed = rng.randrange(1000000000)
+
+        sud_num = str(randseed)+"/"+str(ngiven)
+        field = generate_one_field(ngiven, randseed)
         if len(field) > 0:
             self.sudoku = sudoku.Sudoku(field)
             self.src_field = copy.deepcopy(self.sudoku.state)
+            self.sudoku_number=sud_num
         else:
             messagebox.showinfo(title = "Warning",message="Could not generate sudoku, try one more time")
 
@@ -123,18 +138,14 @@ class SudokuField:
                 if self.src_field[r][c]==0:
                     self.selection = (r,c)
 
-    def draw(self, surf):
+    def draw(self, surf, pos, small_sq_px):
         my_font = pygame.font.SysFont("Arial", 72, False)
         my_font_bold = pygame.font.SysFont("Arial", 72, True)
-        (sx, sy) = surf.get_size()
-        surf_px = min(sx, sy)
 
         margin = 5
-        ulx = margin
-        uly = margin
-        self.pos = (ulx, uly)
+        (ulx, uly) = pos
+        self.pos = pos
 
-        small_sq_px = (surf_px - margin * 2) // self.field_sz
         self.cell_px = small_sq_px
         big_sq_px = small_sq_px * self.sq_sz
         field_px = small_sq_px * self.field_sz
@@ -186,6 +197,7 @@ class SudokuField:
             for c in range(self.field_sz // self.sq_sz):
                 draw_square(surf, ulx + c * big_sq_px, uly + r * big_sq_px, (0, 0, 0), big_sq_px - 1, 1)
 
+
 class TextInput:
     def __init__(self,rect,max_len,font_size,prompt):
         self.result = None
@@ -234,6 +246,7 @@ class TextInput:
         txt_pos = (ulx + margin + 1, uly + margin + 1)
         surf.blit(txt_blit,txt_pos)
 
+
 def process_text_input(field,text,text_type):
     if text_type == "ngiven":
         try:
@@ -259,15 +272,19 @@ def process_text_input(field,text,text_type):
             messagebox.showinfo(title="Error!",
                                 message="Please enter a valid integer in range 0..{0}".format(2**31))
 
+
 def main():
 
     field = SudokuField(9,3)
     field.generate()
 
     pygame.init()
-    surface_size = 800
-    main_surface = pygame.display.set_mode((surface_size, surface_size))
+    surface_w = 800
+    main_surface = pygame.display.set_mode((surface_w, surface_w + 50))
     pygame.display.set_caption("Sudoku game by Ivan Goursky")
+
+    head_font = pygame.font.SysFont("Arial", 36, False)
+
     my_clock = pygame.time.Clock()
 
     help_displayed = False
@@ -326,9 +343,14 @@ def main():
 
         main_surface.fill(col)
 
-        field.draw(main_surface)
+        field.draw(main_surface, (5, 55), 87)
         if text_input is not None:
             text_input.draw(main_surface)
+
+        txt_blit = head_font.render("№"+field.sudoku_number, True, (0,0,0))
+        txt_w = txt_blit.get_size()[0]
+        main_surface.blit(txt_blit,((surface_w-txt_w)//2,5))
+
         pygame.display.flip()
 
         if not help_displayed:
