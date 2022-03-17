@@ -336,11 +336,7 @@ class Sudoku:
         self.issolvable = {}
 
     def memo_nsolutions(self):
-        tmp = []
-        for row in self.state:
-            for cell in row:
-                tmp.append(cell)
-        k = tuple(tmp)
+        k = tuple(tuple(row) for row in self.state)
         nsol = self.issolvable.get(k)
         if nsol is None:
             solutions = self.solve_board(False, False, 2)
