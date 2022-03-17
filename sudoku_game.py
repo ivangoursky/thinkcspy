@@ -4,9 +4,11 @@ import copy
 import time
 from tkinter import messagebox
 
-def generate_one_field(ngiven=23):
+def generate_one_field(ngiven=23, randseed = None):
     sud=sudoku.Sudoku()
-    for i in range(50):
+    if randseed is not None:
+        sud.rnd_seed = randseed
+    for i in range(3):
         #print("Iteration: ",i)
         sud.clear()
         sq1=list(range(1,10))
@@ -53,6 +55,7 @@ def display_help():
         c - reset field
         h - display this help
         n - create new field
+        r - specify random number generator seed
         0 - clear selected cell
         1,2,3,4,5,6,7,8,9 - put corresponding value to the selected cell
         """
@@ -64,9 +67,10 @@ class SudokuField:
         self.sq_sz = sq_sz
         self.selection = None
         self.pos = None
+        self.randseed = None
 
     def generate(self,ngiven=25):
-        field = generate_one_field(ngiven)
+        field = generate_one_field(ngiven,self.randseed)
         if len(field) > 0:
             self.sudoku = sudoku.Sudoku(field)
             self.src_field = copy.deepcopy(self.sudoku.state)
@@ -206,7 +210,8 @@ class TextInput:
             if key==pygame.K_BACKSPACE:
                 if len(self.text)>0:
                     self.text = self.text[:len(self.text)-1]
-                    return
+
+                return
 
             ch = pygame.key.name(key)
             if len(self.text)<self.max_len:
@@ -229,6 +234,30 @@ class TextInput:
         txt_pos = (ulx + margin + 1, uly + margin + 1)
         surf.blit(txt_blit,txt_pos)
 
+def process_text_input(field,text,text_type):
+    if text_type == "ngiven":
+        try:
+            ngiven = int(text)
+            if ngiven >= 23 and ngiven <= 50:
+                field.generate(ngiven)
+            else:
+                my_error = ValueError("")
+                raise my_error
+        except:
+            messagebox.showinfo(title="Error!",
+                                message="Please enter a valid integer in range 23..50")
+
+    elif text_type == "randseed":
+        try:
+            seed = int(text)
+            if seed >= 0 and seed < 2**31:
+                field.randseed = seed
+            else:
+                my_error = ValueError("")
+                raise my_error
+        except:
+            messagebox.showinfo(title="Error!",
+                                message="Please enter a valid integer in range 0..{0}".format(2**31))
 
 def main():
 
@@ -246,6 +275,7 @@ def main():
     t0 = time.time()
 
     text_input = None
+    text_input_type = ""
 
     while True:
         ev = pygame.event.poll()
@@ -256,16 +286,7 @@ def main():
             text_input.process_event(ev)
             if text_input.result is not None:
                 if text_input.result == "OK":
-                    try:
-                        ngiven = int(text_input.text)
-                        if ngiven>=23 and ngiven<=50:
-                            field.generate(ngiven)
-                        else:
-                            my_error = ValueError("")
-                            raise my_error
-                    except:
-                        messagebox.showinfo(title = "Error!", message="Please enter a valid integer in range 23..50")
-
+                    process_text_input(field,text_input.text,text_input_type)
                 text_input = None
         else:
             field.process_event(ev)
@@ -281,6 +302,19 @@ def main():
                     txt_x = ulx + (field.field_px - w) // 2
                     txt_y = uly + (field.field_px - h) // 2
                     text_input = TextInput((txt_x, txt_y, w, h), 4, 32, "Number of given cells (23..50): ")
+                    text_input_type = "ngiven"
+                    field.selection = None
+
+            if ch == "r":
+                if field.pos is not None:
+                    w = 600
+                    h = 70
+                    (ulx,uly) = field.pos
+                    txt_x = ulx + (field.field_px - w) // 2
+                    txt_y = uly + (field.field_px - h) // 2
+                    text_input = TextInput((txt_x, txt_y, w, h), 10, 32,
+                                           "RNG seed (0..{0}): ".format(2**31))
+                    text_input_type = "randseed"
                     field.selection = None
 
         if  field.sudoku.board_has_no_conflicts() and field.sudoku.empty_cells_count()==0:
