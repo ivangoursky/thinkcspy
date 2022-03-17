@@ -47,14 +47,14 @@ def display_help():
     messagebox.showinfo(
         title = "How to play this game",
         message="""Mouse and keyboard shortcuts:
-        Mouse click - select field
+        Mouse click - select cell
         ESC - cancel selection
         a - solve the field
         c - reset field
         h - display this help
         n - create new field
         0 - clear selected cell
-        1,2,4,5,6,7,8,9 - put corresponding value to the selected cell
+        1,2,3,4,5,6,7,8,9 - put corresponding value to the selected cell
         """
     )
 
@@ -281,6 +281,7 @@ def main():
                     txt_x = ulx + (field.field_px - w) // 2
                     txt_y = uly + (field.field_px - h) // 2
                     text_input = TextInput((txt_x, txt_y, w, h), 4, 32, "Number of given cells (23..50): ")
+                    field.selection = None
 
         if  field.sudoku.board_has_no_conflicts() and field.sudoku.empty_cells_count()==0:
             anim_time = time.time() - t0
