@@ -1,3 +1,5 @@
+import math
+
 import pygame
 import sudoku
 import copy
@@ -30,7 +32,7 @@ def generate_one_field(ngiven=23, randseed = None):
             [0, 0, 0, 0, 0, 0, sq3[3], sq3[4], sq3[5]],
             [0, 0, 0, 0, 0, 0, sq3[6], sq3[7], sq3[8]],
         ]
-        solutions = sud.solve_board(True, True, 1)
+        solutions = sud.solve_board(True, True, 1, old_behaviour=True)
         sud.state = copy.deepcopy(solutions[0])
         boards = sud.generate_board(ngiven,1,10000,10)
 
@@ -47,6 +49,23 @@ def draw_square(surf,ulx,uly,col,sz,lwd):
         (ulx + sz, uly + sz),
         (ulx, uly + sz)), lwd)
 
+def draw_possibilities(surf,cx,cy,poss,fnt):
+    #poss_colors = ["black", "darkgreen", "blue", "yellow", "orange", "violet", "violetred", "brown", "limegreen"]
+    margin = 5
+    txt_x = cx + margin
+    txt_y = cy + margin
+    cnt = 0
+    for p in poss:
+        txt_blit = fnt.render(str(p), True, (64,64,128))
+        surf.blit(txt_blit, (txt_x, txt_y))
+        (txt_w, txt_h) = txt_blit.get_size()
+        txt_x += int(txt_w*1.5)
+        cnt += 1
+        if cnt == 3:
+            cnt = 0
+            txt_x = cx + margin
+            txt_y += txt_h
+
 
 def display_help():
     messagebox.showinfo(
@@ -58,6 +77,7 @@ def display_help():
         c - reset field
         h - display this help
         n - create new field
+        p - toggle "display possibilities" mode
         r - specify random number generator seed
         0 - clear selected cell
         1,2,3,4,5,6,7,8,9 - put corresponding value to the selected cell
@@ -75,6 +95,7 @@ class SudokuField:
         self.cell_px = None
         self.field_px = None
         self.sudoku_number=""
+        self.display_possibilities = False
 
     def generate(self,ngiven=25):
         if self.randseed is not None:
@@ -128,6 +149,9 @@ class SudokuField:
             if ch == "h":
                 display_help()
 
+            if ch == "p":
+                self.display_possibilities = not self.display_possibilities
+
         if ev.type == pygame.MOUSEBUTTONDOWN:
             (cx,cy) = ev.dict["pos"]
 
@@ -141,6 +165,7 @@ class SudokuField:
     def draw(self, surf, pos, small_sq_px):
         my_font = pygame.font.SysFont("Arial", 72, False)
         my_font_bold = pygame.font.SysFont("Arial", 72, True)
+        my_font_poss = pygame.font.SysFont("Arial", 20, False)
 
         margin = 5
         (ulx, uly) = pos
@@ -170,6 +195,9 @@ class SudokuField:
 
                 draw_square(surf, cx, cy, (128, 128, 128), small_sq_px - 1, 1)
                 if self.sudoku.state[r][c] == 0:
+                    if self.display_possibilities:
+                        poss = self.sudoku.cell_get_possibilities(r,c)
+                        draw_possibilities(surf,cx,cy,poss,my_font_poss)
                     continue
                 else:
                     txt = str(self.sudoku.state[r][c])

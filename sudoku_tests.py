@@ -1,4 +1,5 @@
 from sudoku import *
+import mytest
 
 if __name__ == "__main__":
     test_board = [

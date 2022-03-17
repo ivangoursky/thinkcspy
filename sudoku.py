@@ -3,9 +3,9 @@ import random
 
 
 def poss2list(poss):
-    res=[]
+    res = []
     for row in poss:
-        tmp=[]
+        tmp = []
         for cell in row:
             tmp.append(list(cell)[0])
         res.append(tmp)
@@ -14,20 +14,28 @@ def poss2list(poss):
 
 
 def make_possibilities_undo(poss, undo):
-    for (rc,restore) in undo.items():
-        (r,c)=rc
-        poss[r][c]=restore
+    for (rc, restore) in undo.items():
+        (r, c) = rc
+        poss[r][c] = restore
 
 
 def max_index(x):
-    best=x[0]
-    best_idx=0
-    for i in range(len(x)-1):
-        if (x[i+1]>best):
-            best=x[i+1]
-            best_idx=i+1
+    best = x[0]
+    best_idx = 0
+    for i in range(len(x) - 1):
+        if (x[i + 1] > best):
+            best = x[i + 1]
+            best_idx = i + 1
 
     return best_idx
+
+def is_solved(poss):
+    for r in range(9):
+        for c in range(9):
+            if len(poss[r][c])>1:
+                return False
+
+    return True
 
 
 class Sudoku:
@@ -58,17 +66,17 @@ class Sudoku:
             self.state.append([0] * 9)
 
     def my_rng(self):
-        self.rnd_seed = (self.rnd_seed*1103515245)%2147483648
+        self.rnd_seed = (self.rnd_seed * 1103515245) % 2147483648
         return self.rnd_seed
 
-    def my_shuffle(self,x):
-        l=len(x)
-        for i in range(len(x)*2):
-            i1=self.my_rng()%l
-            i2=self.my_rng()%l
-            tmp=x[i1]
-            x[i1]=x[i2]
-            x[i2]=tmp
+    def my_shuffle(self, x):
+        l = len(x)
+        for i in range(len(x) * 2):
+            i1 = self.my_rng() % l
+            i2 = self.my_rng() % l
+            tmp = x[i1]
+            x[i1] = x[i2]
+            x[i2] = tmp
 
     def empty_cells_count(self):
         """ Count empty cells on board, denoted by 0s """
@@ -96,7 +104,7 @@ class Sudoku:
                 if self.state[i][col] != 0 and (self.state[i][col] in res):
                     res.remove(self.state[i][col])
 
-        if len(res)==0:
+        if len(res) == 0:
             return res
 
         # check for conflicting values in the 3x3 square
@@ -149,26 +157,26 @@ class Sudoku:
 
     def remove_possibility(self, poss, row, col, cell_val, undo):
         if undo.get((row, col)) is None:
-            undo[(row,col)]=set(poss[row][col]) #make a copy!
+            undo[(row, col)] = set(poss[row][col])  # make a copy!
 
         poss[row][col].remove(cell_val)
-        if len(poss[row][col])==0:
+        if len(poss[row][col]) == 0:
             return False
-        elif len(poss[row][col])==1:
+        elif len(poss[row][col]) == 1:
             return self.update_possibilities(poss, row, col, undo)
 
         return True
 
     def update_possibilities(self, poss, row, col, undo):
         """ Update sets of possible values, after setting the cell at row and col """
-        cur_val=list(poss[row][col])[0]
+        cur_val = list(poss[row][col])[0]
 
         # check for conflicting values in the row
         for i in range(9):
             if i != col:
                 if cur_val in poss[row][i]:
                     if not self.remove_possibility(poss, row, i, cur_val, undo):
-                        return False #setting cell makes the solution impossible
+                        return False  # setting cell makes the solution impossible
 
         # check for conflicting values in the column
         for i in range(9):
@@ -189,29 +197,29 @@ class Sudoku:
 
         return True
 
-    def solve_board(self, shuffle_idx=True, shuffle_possibilities=True, nsolutions=1):
+    def solve_board(self, shuffle_idx=True, shuffle_possibilities=True, nsolutions=1, old_behaviour = False):
         """ Find solution(s) for the board"""
 
-        def try_cell(n,poss):
+        def try_cell(n, poss):
             """ Resursively walk the empty cells and try different values """
 
-            #look for the cell with minimum possibilities
-            min_poss=10
-            min_poss_idx=-1
-            for i in range(n,len(empty_idx)):
+            # look for the cell with minimum possibilities
+            min_poss = 10
+            min_poss_idx = -1
+            for i in range(n, len(empty_idx)):
                 r = empty_idx[i] // 9
                 c = empty_idx[i] % 9
-                l=len(poss[r][c])
-                if l<min_poss:
-                    min_poss=l
-                    min_poss_idx=i
+                l = len(poss[r][c])
+                if l < min_poss:
+                    min_poss = l
+                    min_poss_idx = i
 
-                if l<=2:
+                if l <= 2:
                     break
 
-            tmp=empty_idx[n]
-            empty_idx[n]=empty_idx[min_poss_idx]
-            empty_idx[min_poss_idx]=tmp
+            tmp = empty_idx[n]
+            empty_idx[n] = empty_idx[min_poss_idx]
+            empty_idx[min_poss_idx] = tmp
 
             # decode index
             r = empty_idx[n] // 9
@@ -219,22 +227,33 @@ class Sudoku:
 
             # values to try for the cell
             possibilities = list(poss[r][c])
+
+            if (not old_behaviour) and len(possibilities) == 1:
+                #no need for excessive loops and calls, when we have only 1 possibility
+                if n < len(empty_idx) - 1:
+                    # try substituting numbers to the next cell
+                    try_cell(n + 1, poss)
+                else:
+                    # solution found
+                    res.append(poss2list(poss))
+                return
+
             if shuffle_possibilities:
                 self.my_shuffle(possibilities)
 
             for i in possibilities:
-                undo={}
-                undo[(r,c)]=poss[r][c]
+                undo = {}
+                undo[(r, c)] = poss[r][c]
                 poss[r][c] = set()
                 poss[r][c].add(i)
 
-                if not self.update_possibilities(poss,r,c,undo):
-                    make_possibilities_undo(poss,undo)
+                if not self.update_possibilities(poss, r, c, undo):
+                    make_possibilities_undo(poss, undo)
                     continue
 
                 if n < len(empty_idx) - 1:
                     # try substituting numbers to the next cell
-                    try_cell(n + 1,poss)
+                    try_cell(n + 1, poss)
                 else:
                     # solution found
                     res.append(poss2list(poss))
@@ -272,53 +291,67 @@ class Sudoku:
         if shuffle_idx:
             self.my_shuffle(empty_idx)
 
-        possibilities=[]
+        possibilities = []
         for r in range(9):
-            tmp=[]
+            tmp = []
             for c in range(9):
-                if self.state[r][c]!=0:
-                    cell_poss=set()
+                if self.state[r][c] != 0:
+                    cell_poss = set()
                     cell_poss.add(self.state[r][c])
                     tmp.append(cell_poss)
                 else:
-                    cell_poss=set(self.cell_get_possibilities(r,c))
-                    if len(cell_poss)==0:
-                        return res #can't solve this board
+                    cell_poss = set(self.cell_get_possibilities(r, c))
+                    if len(cell_poss) == 0:
+                        return res  # can't solve this board
                     tmp.append(cell_poss)
 
             possibilities.append(tmp)
 
         for r in range(9):
             for c in range(9):
-                if len(possibilities[r][c])==1:
-                    dummy={}
-                    if not self.update_possibilities(possibilities,r,c,dummy):
+                if len(possibilities[r][c]) == 1:
+                    dummy = {}
+                    if not self.update_possibilities(possibilities, r, c, dummy):
                         return res
 
-        try_cell(0,possibilities)
+        if is_solved(possibilities):
+            #return the solution, if the board has been successfully solved
+            #using the above simple exclusion of possibilities
+            res.append(poss2list(possibilities))
+            return res
+
+        if not old_behaviour:
+            #rebuild empty cells index, if we don't retain old behaviour needed to maintain sudoku numbering
+            empty_idx = []
+            for r in range(9):
+                for c in range(9):
+                    if len(possibilities[r][c])>1:
+                        empty_idx.append(r * 9 + c)
+
+        try_cell(0, possibilities)
 
         return res
 
     def clear_issolvable_cache(self):
-       self.issolvable={}
+        self.issolvable = {}
 
     def memo_nsolutions(self):
-       tmp = []
-       for row in self.state:
-           for cell in row:
-               tmp.append(cell)
-       k = tuple(tmp)
-       nsol = self.issolvable.get(k)
-       if (nsol==None):
-           solutions = self.solve_board(False, False, 2)
-           nsol=len(solutions)
-           self.issolvable[k]=nsol
-       else:
-           return (nsol, True)
+        tmp = []
+        for row in self.state:
+            for cell in row:
+                tmp.append(cell)
+        k = tuple(tmp)
+        nsol = self.issolvable.get(k)
+        if nsol is None:
+            solutions = self.solve_board(False, False, 2)
+            nsol = len(solutions)
+            self.issolvable[k] = nsol
+        else:
+            return (nsol, True)
 
-       return (nsol, False)
+        return (nsol, False)
 
-    def generate_board(self, ncells_leave=40, nboards=1, max_solve_calls=10000,fast_remove=0):
+    def generate_board(self, ncells_leave=40, nboards=1, max_solve_calls=10000, fast_remove=0):
         """
         Generate a board with one solution, by removing cells one by one from the current board.
         Current board should have no empty cells
@@ -334,7 +367,7 @@ class Sudoku:
 
             old_value = self.state[r][c]
             self.state[r][c] = 0
-            (nsol,cache_hit)=self.memo_nsolutions()
+            (nsol, cache_hit) = self.memo_nsolutions()
             nonlocal solve_calls
             if not cache_hit:
                 solve_calls += 1
@@ -349,22 +382,22 @@ class Sudoku:
             else:
                 # cleanup
                 self.state[r][c] = old_value
-                #print("Reached cells: ",81-n)
-                return n-1
+                # print("Reached cells: ",81-n)
+                return n - 1
 
             if solve_calls > max_solve_calls:
-                #print("Reached maximum allowed calls to solve_board")
+                # print("Reached maximum allowed calls to solve_board")
                 # cleanup
                 self.state[r][c] = old_value
                 return n
 
             # make few tries for the left cells
-            recursion_depth=[]
+            recursion_depth = []
             ntries = 80 - n
             full_search = False
 
-            if 80-n<=25:
-                full_search=True
+            if 80 - n <= 25:
+                full_search = True
 
             if full_search and cache_hit:
                 # cleanup
@@ -376,11 +409,11 @@ class Sudoku:
                 self.my_shuffle(tmplist)
                 cells_idx[(n + 1):] = tmplist
 
-            nsuccess=0
+            nsuccess = 0
             for i in range(ntries):
-                tmp=cells_idx[n+1]
-                cells_idx[n+1]=cells_idx[n+1+i]
-                cells_idx[n+1+i]=tmp
+                tmp = cells_idx[n + 1]
+                cells_idx[n + 1] = cells_idx[n + 1 + i]
+                cells_idx[n + 1 + i] = tmp
 
                 depth = remove_cell(n + 1)
 
@@ -391,11 +424,11 @@ class Sudoku:
                     return max(recursion_depth)
 
                 if not full_search:
-                    if depth>n:
-                        #stop if we aren't doing full search, and successfully tried to clear
+                    if depth > n:
+                        # stop if we aren't doing full search, and successfully tried to clear
                         # threshold amount of cells
-                        nsuccess+=1
-                        if nsuccess==3:
+                        nsuccess += 1
+                        if nsuccess == 3:
                             break
 
             # cleanup
@@ -404,7 +437,7 @@ class Sudoku:
 
         self.clear_issolvable_cache()
         cells_idx = list(range(81))
-        if fast_remove>0 and fast_remove<=(81-ncells_leave):
+        if fast_remove > 0 and fast_remove <= (81 - ncells_leave):
             success = False
             for i in range(100):
                 bak = copy.deepcopy(self.state)
@@ -413,16 +446,16 @@ class Sudoku:
                 for j in range(fast_remove):
                     r = cells_idx[j] // 9
                     c = cells_idx[j] % 9
-                    self.state[r][c]=0
+                    self.state[r][c] = 0
 
                 solutions = self.solve_board(False, False, 2)
-                solve_calls+=1
+                solve_calls += 1
                 self.state = bak
 
-                if solve_calls>max_solve_calls:
+                if solve_calls > max_solve_calls:
                     return res
 
-                if len(solutions)==1:
+                if len(solutions) == 1:
                     success = True
                     break
 
@@ -431,7 +464,7 @@ class Sudoku:
                 for j in range(fast_remove):
                     r = cells_idx[j] // 9
                     c = cells_idx[j] % 9
-                    self.state[r][c]=0
+                    self.state[r][c] = 0
 
                 remove_cell(fast_remove)
                 self.state = bak
