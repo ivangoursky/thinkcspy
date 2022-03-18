@@ -74,7 +74,7 @@ if __name__ == "__main__":
     solutions = sud.solve_board(False, True, 1)  # shuffle only possibilities, stop after the first solution
     print(solutions)
 
-    ngiven=22
+    ngiven=23
     print("Trying to generate sudoku's with {0} given".format(ngiven))
     for i in range(50):
         print("Iteration: ",i)
@@ -99,7 +99,7 @@ if __name__ == "__main__":
         ]
         solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board(ngiven,1,10000,10)
+        boards = sud.generate_board(ngiven,1,10000,10,30)
         for b in boards:
             print(b)
             tst_sud = Sudoku(b)

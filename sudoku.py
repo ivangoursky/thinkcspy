@@ -347,7 +347,7 @@ class Sudoku:
 
         return (nsol, False)
 
-    def generate_board(self, ncells_leave=40, nboards=1, max_solve_calls=10000, fast_remove=0):
+    def generate_board(self, ncells_leave=40, nboards=1, max_solve_calls=10000, fast_remove=0, full_search_thresh = 25):
         """
         Generate a board with one solution, by removing cells one by one from the current board.
         Current board should have no empty cells
@@ -392,7 +392,7 @@ class Sudoku:
             ntries = 80 - n
             full_search = False
 
-            if 80 - n <= 25:
+            if 80 - n <= full_search_thresh:
                 full_search = True
 
             if full_search and cache_hit:
