@@ -32,9 +32,9 @@ def generate_one_field(ngiven=23, randseed = None):
             [0, 0, 0, 0, 0, 0, sq3[3], sq3[4], sq3[5]],
             [0, 0, 0, 0, 0, 0, sq3[6], sq3[7], sq3[8]],
         ]
-        solutions = sud.solve_board(True, True, 1, old_behaviour=True)
+        solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board(ngiven,1,10000,10)
+        boards = sud.generate_board(ngiven,1,10000,10,30)
 
         if len(boards)==1:
             return boards[0]

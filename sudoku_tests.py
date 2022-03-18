@@ -74,9 +74,40 @@ if __name__ == "__main__":
     solutions = sud.solve_board(False, True, 1)  # shuffle only possibilities, stop after the first solution
     print(solutions)
 
-    ngiven=23
+    ngiven = 23
     print("Trying to generate sudoku's with {0} given".format(ngiven))
-    for i in range(50):
+    for i in range(5):
+        print("Iteration: ", i)
+        sud.clear()
+        sq1 = list(range(1, 10))
+        sud.my_shuffle(sq1)
+        sq2 = list(range(1, 10))
+        sud.my_shuffle(sq2)
+        sq3 = list(range(1, 10))
+        sud.my_shuffle(sq3)
+
+        sud.state = [
+            [sq1[0], sq1[1], sq1[2], 0, 0, 0, 0, 0, 0],
+            [sq1[3], sq1[4], sq1[5], 0, 0, 0, 0, 0, 0],
+            [sq1[6], sq1[7], sq1[8], 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, sq2[0], sq2[1], sq2[2], 0, 0, 0],
+            [0, 0, 0, sq2[3], sq2[4], sq2[5], 0, 0, 0],
+            [0, 0, 0, sq2[6], sq2[7], sq2[8], 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, sq3[0], sq3[1], sq3[2]],
+            [0, 0, 0, 0, 0, 0, sq3[3], sq3[4], sq3[5]],
+            [0, 0, 0, 0, 0, 0, sq3[6], sq3[7], sq3[8]],
+        ]
+        solutions = sud.solve_board(True, True, 1)
+        sud.state = copy.deepcopy(solutions[0])
+        boards = sud.generate_board(ngiven, 1, 10000, 20, 30)
+        for b in boards:
+            print(b)
+            tst_sud = Sudoku(b)
+            print(sud.solve_board(False, False, 5))
+
+    ngiven=22
+    print("Trying to generate sudoku's with {0} given".format(ngiven))
+    for i in range(3):
         print("Iteration: ",i)
         sud.clear()
         sq1=list(range(1,10))
@@ -99,7 +130,7 @@ if __name__ == "__main__":
         ]
         solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board(ngiven,1,10000,10,30)
+        boards = sud.generate_board(ngiven,1,100000,10,50)
         for b in boards:
             print(b)
             tst_sud = Sudoku(b)

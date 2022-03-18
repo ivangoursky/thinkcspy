@@ -197,7 +197,7 @@ class Sudoku:
 
         return True
 
-    def solve_board(self, shuffle_idx=True, shuffle_possibilities=True, nsolutions=1, old_behaviour = False):
+    def solve_board(self, shuffle_idx=True, shuffle_possibilities=True, nsolutions=1):
         """ Find solution(s) for the board"""
 
         def try_cell(n, poss):
@@ -228,7 +228,7 @@ class Sudoku:
             # values to try for the cell
             possibilities = list(poss[r][c])
 
-            if (not old_behaviour) and len(possibilities) == 1:
+            if len(possibilities) == 1:
                 #no need for excessive loops and calls, when we have only 1 possibility
                 if n < len(empty_idx) - 1:
                     # try substituting numbers to the next cell
@@ -320,13 +320,12 @@ class Sudoku:
             res.append(poss2list(possibilities))
             return res
 
-        if not old_behaviour:
-            #rebuild empty cells index, if we don't retain old behaviour needed to maintain sudoku numbering
-            empty_idx = []
-            for r in range(9):
-                for c in range(9):
-                    if len(possibilities[r][c])>1:
-                        empty_idx.append(r * 9 + c)
+        #rebuild empty cells index, if we don't retain old behaviour needed to maintain sudoku numbering
+        empty_idx = []
+        for r in range(9):
+            for c in range(9):
+                if len(possibilities[r][c])>1:
+                    empty_idx.append(r * 9 + c)
 
         try_cell(0, possibilities)
 
@@ -355,55 +354,65 @@ class Sudoku:
         solve_calls = 0
         res = []
 
-        def remove_cell(n):
+        def remove_cell(n, cells_idx):
             """ Remove the cell at index n of the list """
-            # decode index
-            r = cells_idx[n] // 9
-            c = cells_idx[n] % 9
 
-            old_value = self.state[r][c]
-            self.state[r][c] = 0
-            (nsol, cache_hit) = self.memo_nsolutions()
-            nonlocal solve_calls
-            if not cache_hit:
-                solve_calls += 1
+            # make a local copy of cells_idx
+            cells_idx = copy.deepcopy(cells_idx)
+            #shuffle cells_idx for cells, not yet being tried to remove
+            tmplist = cells_idx[(n + 1):]
+            self.my_shuffle(tmplist)
+            cells_idx[(n + 1):] = tmplist
 
-            if nsol == 1:
-                # board generated
-                if 80 - n == ncells_leave:
-                    res.append(copy.deepcopy(self.state))
+            cache_hit = False
+            if n>-1:
+                # decode index
+                r = cells_idx[n] // 9
+                c = cells_idx[n] % 9
+
+                old_value = self.state[r][c]
+                self.state[r][c] = 0
+                (nsol, cache_hit) = self.memo_nsolutions()
+                nonlocal solve_calls
+                if not cache_hit:
+                    solve_calls += 1
+
+                #if solve_calls > max_solve_calls:
+                #    print("Reached maximum allowed calls to solve_board")
+
+                if nsol == 1:
+                    # board generated
+                    if 80 - n == ncells_leave:
+                        res.append(copy.deepcopy(self.state))
+                        # cleanup
+                        self.state[r][c] = old_value
+                        return n
+                else:
+                    # cleanup
+                    self.state[r][c] = old_value
+                    # print("Reached cells: ",81-n)
+                    return n - 1
+
+                if solve_calls > max_solve_calls:
                     # cleanup
                     self.state[r][c] = old_value
                     return n
-            else:
-                # cleanup
-                self.state[r][c] = old_value
-                # print("Reached cells: ",81-n)
-                return n - 1
-
-            if solve_calls > max_solve_calls:
-                # print("Reached maximum allowed calls to solve_board")
-                # cleanup
-                self.state[r][c] = old_value
-                return n
 
             # make few tries for the left cells
             recursion_depth = []
             ntries = 80 - n
             full_search = False
 
+            #print("|" * (ntries - ncells_leave))
+
             if 80 - n <= full_search_thresh:
                 full_search = True
 
             if full_search and cache_hit:
                 # cleanup
-                self.state[r][c] = old_value
+                if n>-1:
+                    self.state[r][c] = old_value
                 return n  # don't try with the same board twice
-
-            if not full_search:
-                tmplist = cells_idx[(n + 1):]
-                self.my_shuffle(tmplist)
-                cells_idx[(n + 1):] = tmplist
 
             nsuccess = 0
             for i in range(ntries):
@@ -411,12 +420,13 @@ class Sudoku:
                 cells_idx[n + 1] = cells_idx[n + 1 + i]
                 cells_idx[n + 1 + i] = tmp
 
-                depth = remove_cell(n + 1)
+                depth = remove_cell(n + 1, cells_idx)
 
                 recursion_depth.append(depth)
                 if solve_calls > max_solve_calls or len(res) == nboards:
                     # cleanup
-                    self.state[r][c] = old_value
+                    if n>-1:
+                        self.state[r][c] = old_value
                     return max(recursion_depth)
 
                 if not full_search:
@@ -428,7 +438,9 @@ class Sudoku:
                             break
 
             # cleanup
-            self.state[r][c] = old_value
+            if n>-1:
+                self.state[r][c] = old_value
+
             return max(recursion_depth)
 
         self.clear_issolvable_cache()
@@ -462,11 +474,11 @@ class Sudoku:
                     c = cells_idx[j] % 9
                     self.state[r][c] = 0
 
-                remove_cell(fast_remove)
+                remove_cell(fast_remove, cells_idx)
                 self.state = bak
             else:
-                remove_cell(0)
+                remove_cell(-1, cells_idx)
         else:
             self.my_shuffle(cells_idx)
-            remove_cell(0)
+            remove_cell(-1, cells_idx)
         return res
