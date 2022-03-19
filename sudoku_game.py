@@ -34,7 +34,7 @@ def generate_one_field(ngiven=23, randseed = None):
         ]
         solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board(ngiven,1,10000,10,30)
+        boards = sud.generate_board_annealing(ngiven, 1000)
 
         if len(boards)==1:
             return boards[0]
@@ -279,14 +279,14 @@ def process_text_input(field,text,text_type):
     if text_type == "ngiven":
         try:
             ngiven = int(text)
-            if ngiven >= 23 and ngiven <= 50:
+            if ngiven >= 21 and ngiven <= 50:
                 field.generate(ngiven)
             else:
                 my_error = ValueError("")
                 raise my_error
         except:
             messagebox.showinfo(title="Error!",
-                                message="Please enter a valid integer in range 23..50")
+                                message="Please enter a valid integer in range 21..50")
 
     elif text_type == "randseed":
         try:
@@ -346,7 +346,7 @@ def main():
                     (ulx,uly) = field.pos
                     txt_x = ulx + (field.field_px - w) // 2
                     txt_y = uly + (field.field_px - h) // 2
-                    text_input = TextInput((txt_x, txt_y, w, h), 4, 32, "Number of given cells (23..50): ")
+                    text_input = TextInput((txt_x, txt_y, w, h), 4, 32, "Number of given cells (21..50): ")
                     text_input_type = "ngiven"
                     field.selection = None
 

@@ -74,8 +74,8 @@ if __name__ == "__main__":
     solutions = sud.solve_board(False, True, 1)  # shuffle only possibilities, stop after the first solution
     print(solutions)
 
-    ngiven = 23
-    print("Trying to generate sudoku's with {0} given".format(ngiven))
+    ngiven = 25
+    print("Trying to generate sudoku's with {0} given, using recursive algotithm".format(ngiven))
     for i in range(5):
         print("Iteration: ", i)
         sud.clear()
@@ -99,15 +99,15 @@ if __name__ == "__main__":
         ]
         solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board(ngiven, 1, 10000, 20, 30)
+        boards = sud.generate_board_recursive(ngiven, 1, 10000, 20, 30)
         for b in boards:
             print(b)
             tst_sud = Sudoku(b)
             print(sud.solve_board(False, False, 5))
 
-    ngiven=22
-    print("Trying to generate sudoku's with {0} given".format(ngiven))
-    for i in range(3):
+    ngiven=20
+    print("Trying to generate sudoku's with {0} given, using annealing".format(ngiven))
+    for i in range(26):
         print("Iteration: ",i)
         sud.clear()
         sq1=list(range(1,10))
@@ -130,7 +130,7 @@ if __name__ == "__main__":
         ]
         solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board(ngiven,1,100000,10,50)
+        boards = sud.generate_board_annealing(ngiven, 1000)
         for b in boards:
             print(b)
             tst_sud = Sudoku(b)

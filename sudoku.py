@@ -346,7 +346,8 @@ class Sudoku:
 
         return (nsol, False)
 
-    def generate_board(self, ncells_leave=40, nboards=1, max_solve_calls=10000, fast_remove=0, full_search_thresh = 25):
+    def generate_board_recursive(self, ncells_leave=40, nboards=1, max_solve_calls=10000,
+                                 fast_remove=0, full_search_thresh = 25):
         """
         Generate a board with one solution, by removing cells one by one from the current board.
         Current board should have no empty cells
@@ -481,4 +482,115 @@ class Sudoku:
         else:
             self.my_shuffle(cells_idx)
             remove_cell(-1, cells_idx)
+        return res
+
+    def generate_board_annealing(self, ncells_leave=40, max_rounds=10000):
+        """
+        Generate a board with one solution, by removing cells one by one from the current board.
+        Current board could have empty cells
+        """
+        given_cells = set()
+        empty_cells = set()
+        src_board = copy.deepcopy(self.state)
+        for r in range(9):
+            for c in range(9):
+                if self.state[r][c]>0:
+                    given_cells.add(r*9+c)
+                else:
+                    empty_cells.add(r*9+c)
+
+        #backup copy of the current field
+
+        res = []
+
+        if ncells_leave == len(given_cells):
+            #nothing to remove
+            res.add(src_board)
+            return res
+        elif ncells_leave > len(given_cells):
+            #couldn't complete the task
+            return res
+
+        for iter in range(max_rounds):
+            #find cells, which we could remove
+            could_remove = set()
+            for cell in given_cells:
+                r = cell // 9
+                c = cell % 9
+                old_value = self.state[r][c]
+                self.state[r][c] = 0
+                if len(self.solve_board(False, False, 2)) == 1:
+                    could_remove.add(r * 9 + c)
+                self.state[r][c] = old_value
+
+            #if we couldn't remove any cell, try removing the random one
+            #and the add some cells, until the board is solvable again
+            #and than re-run the iteration
+            if len(could_remove) == 0:
+                board_bak_rmcell = copy.deepcopy(self.state)
+                given_cells_bak = copy.deepcopy(given_cells)
+                empty_cells_bak = copy.deepcopy(empty_cells)
+
+                given_cells_list = list(given_cells)
+                self.my_shuffle(given_cells_list)
+                cell_to_remove = given_cells_list[0]
+                r = cell_to_remove // 9
+                c = cell_to_remove % 9
+                self.state[r][c] = 0
+                #remove the selected cell from the given cells set
+                #but don't add to the free cells set yet, to avoid immediate return of that cell
+                #while the next steps
+                given_cells.remove(cell_to_remove)
+
+                success = False
+                empty_cells_list = list(empty_cells)
+                self.my_shuffle(empty_cells_list)
+                for cell in empty_cells_list:
+                    r = cell // 9
+                    c = cell % 9
+                    self.state[r][c] = src_board[r][c]
+                    empty_cells.remove(cell)
+                    given_cells.add(cell)
+                    #check if the board is solvable now
+                    if len(self.solve_board(False, False, 2)) == 1:
+                        success = True
+                        break
+
+                #now add the removed cell to the empty cells list
+                empty_cells.add(cell_to_remove)
+
+                #check if we successfully removed one cell, and added another one
+                #if not, clenup
+                if not success:
+                    self.state = board_bak_rmcell
+                    given_cells = given_cells_bak
+                    empty_cells = empty_cells_bak
+
+                #continue for the next iteration
+                continue
+
+            #shuffle list of removable cells
+            could_remove_list = list(could_remove)
+            self.my_shuffle(could_remove_list)
+
+            #remove the cells, until we reach the necessary amount of given cells,
+            #or we can't remove cells anymore
+            for cell in could_remove_list:
+                r = cell // 9
+                c = cell % 9
+                old_value = self.state[r][c]
+                self.state[r][c] = 0
+                given_cells.remove(cell)
+                empty_cells.add(cell)
+                if len(self.solve_board(False, False, 2)) == 1:
+                    #a board with required number of given cells successfully generated
+                    if len(given_cells) == ncells_leave:
+                        res.append(copy.deepcopy(self.state))
+                        self.state = src_board
+                        return res
+                else:
+                    #tried to remove this cell without success, cleanup
+                    self.state[r][c] = old_value
+                    given_cells.add(cell)
+                    empty_cells.remove(cell)
         return res
