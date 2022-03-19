@@ -3,6 +3,8 @@ import random
 
 
 def poss2list(poss):
+    """ Covert a solution represented as a 9x9 matrix, elements of which are sets
+    (with exactly one element) to the matrix of integers"""
     res = []
     for row in poss:
         tmp = []
@@ -14,12 +16,14 @@ def poss2list(poss):
 
 
 def make_possibilities_undo(poss, undo):
+    """ Undo changes to the possibilities matrix poss, specified in the dictionary undo"""
     for (rc, restore) in undo.items():
         (r, c) = rc
         poss[r][c] = restore
 
 
 def max_index(x):
+    """ Find index of the maximal element in list"""
     best = x[0]
     best_idx = 0
     for i in range(len(x) - 1):
@@ -30,12 +34,24 @@ def max_index(x):
     return best_idx
 
 def is_solved(poss):
+    """ Given a matrix of possibilities (each element is a set, representing possible values for the cell),
+    check if it is a solution (only one possibility for eac cell)"""
     for r in range(9):
         for c in range(9):
             if len(poss[r][c])>1:
                 return False
 
     return True
+
+def sudoku_state2str(state):
+    """ Convert to the textual form the sudoku board, represented by 9x9 matrix of integers"""
+    res = ""
+    for r in range(9):
+        for c in range(9):
+            res = res + str(state[r][c])
+        res = res + "\n"
+
+    return res
 
 
 class Sudoku:
@@ -61,15 +77,18 @@ class Sudoku:
         self.rnd_seed = rng.randrange(1000000000)
 
     def clear(self):
+        """ Clear sudoku board (this means, fill it with empty cells)"""
         self.state = []
         for i in range(9):
             self.state.append([0] * 9)
 
     def my_rng(self):
+        """ Pseudo-random number generator"""
         self.rnd_seed = (self.rnd_seed * 1103515245) % 2147483648
         return self.rnd_seed
 
     def my_shuffle(self, x):
+        """ Shuffle the list"""
         l = len(x)
         for i in range(len(x) * 2):
             i1 = self.my_rng() % l
@@ -87,6 +106,14 @@ class Sudoku:
                     cnt += 1
 
         return cnt
+
+    def given_cells_count(self):
+        """ Count given cells on board, denoted by 1-9s """
+        return 81 - self.empty_cells_count()
+
+    def __str__(self):
+        """ Represent the current board as text"""
+        return sudoku_state2str(self.state)
 
     def cell_get_possibilities(self, row, col):
         """ Get the list of possible values for the cell """
@@ -156,6 +183,10 @@ class Sudoku:
         return True
 
     def remove_possibility(self, poss, row, col, cell_val, undo):
+        """Remove cell_val from the set of possible values of the cell at row and col,
+        save data for undo in the undo dictionary.
+        In case only 1 possibility is left, call update_possibilities for that cells.
+        Return true if all updates were successful, and false if we met conflicts."""
         if undo.get((row, col)) is None:
             undo[(row, col)] = set(poss[row][col])  # make a copy!
 
@@ -168,7 +199,8 @@ class Sudoku:
         return True
 
     def update_possibilities(self, poss, row, col, undo):
-        """ Update sets of possible values, after setting the cell at row and col """
+        """ Update sets of possible values, after setting the cell at row and col.
+        Return true if all updates were successful, and false if we met conflicts."""
         cur_val = list(poss[row][col])[0]
 
         # check for conflicting values in the row
@@ -320,7 +352,7 @@ class Sudoku:
             res.append(poss2list(possibilities))
             return res
 
-        #rebuild empty cells index, if we don't retain old behaviour needed to maintain sudoku numbering
+        #rebuild empty cells index
         empty_idx = []
         for r in range(9):
             for c in range(9):
@@ -332,9 +364,12 @@ class Sudoku:
         return res
 
     def clear_issolvable_cache(self):
+        """Clear cache of number of solutions"""
         self.issolvable = {}
 
     def memo_nsolutions(self):
+        """Calculate the number of solutions for the current board (up to 2).
+        Uses self.issolvable dictionary to cache results"""
         k = tuple(tuple(row) for row in self.state)
         nsol = self.issolvable.get(k)
         if nsol is None:
@@ -346,18 +381,18 @@ class Sudoku:
 
         return (nsol, False)
 
-    def generate_board_recursive(self, ncells_leave=40, nboards=1, max_solve_calls=10000,
+    def generate_board_recursive(self, ncells_leave=40, max_solve_calls=10000,
                                  fast_remove=0, full_search_thresh = 25):
         """
         Generate a board with one solution, by removing cells one by one from the current board.
         Current board should have no empty cells
         """
         solve_calls = 0
-        res = []
+        res = None
 
         def remove_cell(n, cells_idx):
             """ Remove the cell at index n of the list """
-
+            nonlocal res
             # make a local copy of cells_idx
             cells_idx = copy.deepcopy(cells_idx)
             #shuffle cells_idx for cells, not yet being tried to remove
@@ -384,7 +419,7 @@ class Sudoku:
                 if nsol == 1:
                     # board generated
                     if 80 - n == ncells_leave:
-                        res.append(copy.deepcopy(self.state))
+                        res = copy.deepcopy(self.state)
                         # cleanup
                         self.state[r][c] = old_value
                         return n
@@ -424,7 +459,7 @@ class Sudoku:
                 depth = remove_cell(n + 1, cells_idx)
 
                 recursion_depth.append(depth)
-                if solve_calls > max_solve_calls or len(res) == nboards:
+                if solve_calls > max_solve_calls or res is not None:
                     # cleanup
                     if n>-1:
                         self.state[r][c] = old_value
@@ -501,11 +536,11 @@ class Sudoku:
 
         #backup copy of the current field
 
-        res = []
+        res = None
 
         if ncells_leave == len(given_cells):
             #nothing to remove
-            res.add(src_board)
+            res = src_board
             return res
         elif ncells_leave > len(given_cells):
             #couldn't complete the task
@@ -540,7 +575,7 @@ class Sudoku:
                 if len(self.solve_board(False, False, 2)) == 1:
                     #a board with required number of given cells successfully generated
                     if len(given_cells) == ncells_leave:
-                        res.append(copy.deepcopy(self.state))
+                        res = copy.deepcopy(self.state)
                         self.state = src_board
                         return res
                 else:
@@ -590,4 +625,3 @@ class Sudoku:
                 given_cells = given_cells_bak
                 empty_cells = empty_cells_bak
         return res
-    

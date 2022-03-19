@@ -8,12 +8,15 @@ import random
 from tkinter import messagebox
 
 def generate_one_field(ngiven=23, randseed = None):
+    """Generate a field with number of given cells ngiven.
+    Field is represented as 9x9 matrix of integers (as Sudoku.state).
+    Optionally randseed could be set, to achive reproducible fields."""
     sud=sudoku.Sudoku()
     if randseed is not None:
         sud.rnd_seed = randseed
     for i in range(3):
-        #print("Iteration: ",i)
         sud.clear()
+        #fill 3 3x3 squares with random permutations of 1..9
         sq1=list(range(1,10))
         sud.my_shuffle(sq1)
         sq2 = list(range(1, 10))
@@ -32,14 +35,17 @@ def generate_one_field(ngiven=23, randseed = None):
             [0, 0, 0, 0, 0, 0, sq3[3], sq3[4], sq3[5]],
             [0, 0, 0, 0, 0, 0, sq3[6], sq3[7], sq3[8]],
         ]
+        #find first solution for this field, using randomization in solve_board
         solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board_annealing(ngiven, 500)
 
-        if len(boards)==1:
-            return boards[0]
+        #try to remove some cells and leave ngiven cells, using simulated annealing-like method
+        board = sud.generate_board_annealing(ngiven, 500)
 
-    return []
+        #return the generated field, or None if generation wasn't successful
+        return board
+
+    return None
 
 
 def draw_square(surf,ulx,uly,col,sz,lwd):
@@ -50,7 +56,8 @@ def draw_square(surf,ulx,uly,col,sz,lwd):
         (ulx, uly + sz)), lwd)
 
 def draw_possibilities(surf,cx,cy,poss,fnt):
-    #poss_colors = ["black", "darkgreen", "blue", "yellow", "orange", "violet", "violetred", "brown", "limegreen"]
+    """Draw possible values (represented by set poss) for the cell at (cx,cy),
+    using for fnt"""
     margin = 5
     txt_x = cx + margin
     txt_y = cy + margin
@@ -98,15 +105,19 @@ class SudokuField:
         self.display_possibilities = False
 
     def generate(self,ngiven=25):
+        """ Try to generate sudoku with ngiven given cells.
+        If self.randseed is set, use it to set RNG for reproducible result"""
         if self.randseed is not None:
             randseed = self.randseed
         else:
             rng = random.Random()
             randseed = rng.randrange(1000000000)
 
+        #encode sudoku number as "RNG_seed/ngiven"
         sud_num = str(randseed)+"/"+str(ngiven)
+
         field = generate_one_field(ngiven, randseed)
-        if len(field) > 0:
+        if field is not None:
             self.sudoku = sudoku.Sudoku(field)
             self.src_field = copy.deepcopy(self.sudoku.state)
             self.sudoku_number=sud_num
@@ -117,6 +128,7 @@ class SudokuField:
             self.sudoku = sudoku.Sudoku()
 
     def process_event(self, ev):
+        """ Process keyboard and mouse events, passed to the instance of SudokuField"""
         if ev.type==pygame.KEYDOWN:
             key = ev.key
 
@@ -163,6 +175,9 @@ class SudokuField:
                     self.selection = (r,c)
 
     def draw(self, surf, pos, small_sq_px):
+        """ Draw sudoku field: the grid, values of given cells, values of cells inputted by user,
+        optionally - possibilities for each cell.
+        Draw field at (x,y)=pos, using the size of small square small_sq_px"""
         my_font = pygame.font.SysFont("Arial", 72, False)
         my_font_bold = pygame.font.SysFont("Arial", 72, True)
         my_font_poss = pygame.font.SysFont("Arial", 20, False)
@@ -176,12 +191,15 @@ class SudokuField:
         field_px = small_sq_px * self.field_sz
         self.field_px = field_px
 
+        #set selr, selc to the selected row and column, if we have a selection,
+        #or to -1, if we have no selection
         if self.selection is not None:
             (selr, selc) = self.selection
         else:
             selr = -1
             selc = -1
 
+        #draw a border around the field
         draw_square(surf, ulx - 1, uly - 1, (64, 64, 64), field_px + 1, 1)
         draw_square(surf, ulx - 2, uly - 2, (128, 128, 128), field_px + 3, 1)
         draw_square(surf, ulx - 3, uly - 3, (192, 192, 192), field_px + 5, 1)
@@ -190,10 +208,15 @@ class SudokuField:
             for c in range(self.field_sz):
                 cx = ulx + c * small_sq_px
                 cy = uly + r * small_sq_px
+
+                #if this square is selected, highlight it in light green
                 if r == selr and c == selc:
                     surf.fill((64, 128, 64), (cx, cy, small_sq_px - 1, small_sq_px - 1))
 
+                #draw a border around the small square
                 draw_square(surf, cx, cy, (128, 128, 128), small_sq_px - 1, 1)
+
+                #draw possible values for empty cells, if self.display_possibilities is set
                 if self.sudoku.state[r][c] == 0:
                     if self.display_possibilities:
                         poss = self.sudoku.cell_get_possibilities(r,c)
@@ -202,6 +225,8 @@ class SudokuField:
                 else:
                     txt = str(self.sudoku.state[r][c])
 
+                #choose different font and color for given cells (self.src_field[r][c] != 0),
+                #and for inputted by user
                 if self.src_field[r][c] != 0:
                     fnt = my_font_bold
                     if self.sudoku.cell_has_no_conflicts(r, c):
@@ -215,18 +240,21 @@ class SudokuField:
                     else:
                         col = (128, 64, 64)
 
+                #draw the value in the cell
                 txt_blit = fnt.render(txt, True, col)
                 (txt_szx, txt_szy) = txt_blit.get_size()
                 txt_x = cx + (small_sq_px - txt_szx) // 2
                 txt_y = cy + (small_sq_px - txt_szy) // 2
                 surf.blit(txt_blit, (txt_x, txt_y))
 
+        #draw borders around 3x3 squares
         for r in range(self.field_sz // self.sq_sz):
             for c in range(self.field_sz // self.sq_sz):
                 draw_square(surf, ulx + c * big_sq_px, uly + r * big_sq_px, (0, 0, 0), big_sq_px - 1, 1)
 
 
 class TextInput:
+    """ Class for receiving text input from user"""
     def __init__(self,rect,max_len,font_size,prompt):
         self.result = None
         self.prompt = prompt
