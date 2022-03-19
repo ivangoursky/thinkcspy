@@ -523,55 +523,10 @@ class Sudoku:
                     could_remove.add(r * 9 + c)
                 self.state[r][c] = old_value
 
-            #if we couldn't remove any cell, try removing the random one
-            #and the add some cells, until the board is solvable again
-            #and than re-run the iteration
-            if len(could_remove) == 0:
-                board_bak_rmcell = copy.deepcopy(self.state)
-                given_cells_bak = copy.deepcopy(given_cells)
-                empty_cells_bak = copy.deepcopy(empty_cells)
-
-                given_cells_list = list(given_cells)
-                self.my_shuffle(given_cells_list)
-                cell_to_remove = given_cells_list[0]
-                r = cell_to_remove // 9
-                c = cell_to_remove % 9
-                self.state[r][c] = 0
-                #remove the selected cell from the given cells set
-                #but don't add to the free cells set yet, to avoid immediate return of that cell
-                #while the next steps
-                given_cells.remove(cell_to_remove)
-
-                success = False
-                empty_cells_list = list(empty_cells)
-                self.my_shuffle(empty_cells_list)
-                for cell in empty_cells_list:
-                    r = cell // 9
-                    c = cell % 9
-                    self.state[r][c] = src_board[r][c]
-                    empty_cells.remove(cell)
-                    given_cells.add(cell)
-                    #check if the board is solvable now
-                    if len(self.solve_board(False, False, 2)) == 1:
-                        success = True
-                        break
-
-                #now add the removed cell to the empty cells list
-                empty_cells.add(cell_to_remove)
-
-                #check if we successfully removed one cell, and added another one
-                #if not, clenup
-                if not success:
-                    self.state = board_bak_rmcell
-                    given_cells = given_cells_bak
-                    empty_cells = empty_cells_bak
-
-                #continue for the next iteration
-                continue
-
             #shuffle list of removable cells
             could_remove_list = list(could_remove)
-            self.my_shuffle(could_remove_list)
+            if len(could_remove_list)>0:
+                self.my_shuffle(could_remove_list)
 
             #remove the cells, until we reach the necessary amount of given cells,
             #or we can't remove cells anymore
@@ -593,4 +548,46 @@ class Sudoku:
                     self.state[r][c] = old_value
                     given_cells.add(cell)
                     empty_cells.remove(cell)
+
+            # we have remote the cells we could, no try to remove random cell,
+            #and "open" random positions, until the board is solvable again
+            board_bak_rmcell = copy.deepcopy(self.state)
+            given_cells_bak = copy.deepcopy(given_cells)
+            empty_cells_bak = copy.deepcopy(empty_cells)
+
+            given_cells_list = list(given_cells)
+            self.my_shuffle(given_cells_list)
+            cell_to_remove = given_cells_list[0]
+            r = cell_to_remove // 9
+            c = cell_to_remove % 9
+            self.state[r][c] = 0
+            # remove the selected cell from the given cells set
+            # but don't add to the free cells set yet, to avoid immediate return of that cell
+            # while the next steps
+            given_cells.remove(cell_to_remove)
+
+            success = False
+            empty_cells_list = list(empty_cells)
+            self.my_shuffle(empty_cells_list)
+            for cell in empty_cells_list:
+                r = cell // 9
+                c = cell % 9
+                self.state[r][c] = src_board[r][c]
+                empty_cells.remove(cell)
+                given_cells.add(cell)
+                # check if the board is solvable now
+                if len(self.solve_board(False, False, 2)) == 1:
+                    success = True
+                    break
+
+            # now add the removed cell to the empty cells list
+            empty_cells.add(cell_to_remove)
+
+            # check if we successfully removed one cell, and added another one
+            # if not, cleanup
+            if not success:
+                self.state = board_bak_rmcell
+                given_cells = given_cells_bak
+                empty_cells = empty_cells_bak
         return res
+    

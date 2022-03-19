@@ -105,7 +105,7 @@ if __name__ == "__main__":
             tst_sud = Sudoku(b)
             print(sud.solve_board(False, False, 5))
 
-    ngiven=20
+    ngiven=21
     print("Trying to generate sudoku's with {0} given, using annealing".format(ngiven))
     for i in range(26):
         print("Iteration: ",i)

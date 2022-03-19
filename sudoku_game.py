@@ -34,7 +34,7 @@ def generate_one_field(ngiven=23, randseed = None):
         ]
         solutions = sud.solve_board(True, True, 1)
         sud.state = copy.deepcopy(solutions[0])
-        boards = sud.generate_board_annealing(ngiven, 1000)
+        boards = sud.generate_board_annealing(ngiven, 500)
 
         if len(boards)==1:
             return boards[0]
