@@ -40,7 +40,7 @@ def generate_one_field(ngiven=23, randseed = None):
         sud.state = copy.deepcopy(solutions[0])
 
         #try to remove some cells and leave ngiven cells, using simulated annealing-like method
-        board = sud.generate_board_annealing(ngiven, 500)
+        board = sud.generate_board_annealing(ngiven, 500, False)
 
         #return the generated field, or None if generation wasn't successful
         return board

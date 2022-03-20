@@ -83,16 +83,21 @@ class Sudoku:
             self.state.append([0] * 9)
 
     def my_rng(self):
-        """ Pseudo-random number generator"""
+        """ Pseudo-random number generator, return current RNG state"""
         self.rnd_seed = (self.rnd_seed * 1103515245) % 2147483648
         return self.rnd_seed
+
+    def my_rng_range(self, n):
+        """ Pseudo-random number generator, returns value in range 0..(n-1)"""
+        self.rnd_seed = (self.rnd_seed * 1103515245) % 2147483648
+        return int((self.rnd_seed / 2147483648) * n)
 
     def my_shuffle(self, x):
         """ Shuffle the list"""
         l = len(x)
         for i in range(len(x) * 2):
-            i1 = self.my_rng() % l
-            i2 = self.my_rng() % l
+            i1 = self.my_rng_range(l)
+            i2 = self.my_rng_range(l)
             tmp = x[i1]
             x[i1] = x[i2]
             x[i2] = tmp
@@ -519,22 +524,23 @@ class Sudoku:
             remove_cell(-1, cells_idx)
         return res
 
-    def generate_board_annealing(self, ncells_leave=40, max_rounds=10000):
+    def generate_board_annealing(self, ncells_leave=40, max_rounds=10000, keep_solution = True):
         """
         Generate a board with one solution, by removing cells one by one from the current board.
         Current board could have empty cells
         """
+
+        # backup copy of the current field
+        src_board = copy.deepcopy(self.state)
+
         given_cells = set()
         empty_cells = set()
-        src_board = copy.deepcopy(self.state)
         for r in range(9):
             for c in range(9):
                 if self.state[r][c]>0:
                     given_cells.add(r*9+c)
-                else:
-                    empty_cells.add(r*9+c)
-
-        #backup copy of the current field
+                # else:
+                #     empty_cells.add(r*9+c)
 
         res = None
 
@@ -604,10 +610,20 @@ class Sudoku:
             success = False
             empty_cells_list = list(empty_cells)
             self.my_shuffle(empty_cells_list)
+
+            #if we can change the resulting solution, generate a new board,
+            #but keep the values of given cells
+            if not keep_solution:
+                new_board = self.solve_board(True, True, 1)[0]
+
             for cell in empty_cells_list:
                 r = cell // 9
                 c = cell % 9
-                self.state[r][c] = src_board[r][c]
+                if keep_solution:
+                    self.state[r][c] = src_board[r][c]
+                else:
+                    if src_board[r][c]!=0:
+                        self.state[r][c] = new_board[r][c]
                 empty_cells.remove(cell)
                 given_cells.add(cell)
                 # check if the board is solvable now
@@ -624,4 +640,6 @@ class Sudoku:
                 self.state = board_bak_rmcell
                 given_cells = given_cells_bak
                 empty_cells = empty_cells_bak
+
+        self.state = src_board
         return res
