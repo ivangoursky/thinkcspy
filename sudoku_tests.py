@@ -88,25 +88,26 @@ if __name__ == "__main__":
         board = sud.generate_board_recursive(ngiven, 10000, 20, 30)
         test_board(board,1,ngiven)
 
-    ngiven=21
-    print("Trying to generate sudoku's with {0} given, using annealing, with empty central 3x3 square".format(ngiven))
-    for i in range(3):
-        print("Iteration: ",i)
-        solutions = generate_random_filled_board(sud, 1)
-        sud.state = copy.deepcopy(solutions[0])
-        for r in range(3,6):
-            for c in range(3,6):
-                sud.state[r][c] = 0
-        board = sud.generate_board_annealing(ngiven, 1000) #
-        test_board(board,1,ngiven)
 
-    ngiven = 20
+    ngiven = 21
     print("Trying to generate sudoku's with {0} given, using annealing, without keeping the solution".format(ngiven))
     for i in range(5):
         print("Iteration: ", i)
         solutions = generate_random_filled_board(sud, 1)
         sud.state = copy.deepcopy(solutions[0])
         board = sud.generate_board_annealing(ngiven, 1000, False)
+        test_board(board, 1, ngiven)
+
+    ngiven = 21
+    print("Trying to generate sudoku's with {0} given, using annealing, with empty central 3x3 square".format(ngiven))
+    for i in range(3):
+        print("Iteration: ", i)
+        solutions = generate_random_filled_board(sud, 1)
+        sud.state = copy.deepcopy(solutions[0])
+        for r in range(3, 6):
+            for c in range(3, 6):
+                sud.state[r][c] = 0
+        board = sud.generate_board_annealing(ngiven, 1000)  #
         test_board(board, 1, ngiven)
 
     # ngiven = 20

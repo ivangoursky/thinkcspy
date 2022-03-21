@@ -567,6 +567,7 @@ class Sudoku:
             return res
 
         for iter in range(max_rounds):
+            #print("|" * (len(given_cells) - ncells_leave))
             #find cells, which we could remove
             could_remove = set()
             for cell in given_cells:
@@ -630,6 +631,7 @@ class Sudoku:
             if not keep_solution:
                 new_board = self.solve_board(True, True, 1)[0]
 
+            #try open some cells, until the board is solvable again
             for cell in empty_cells_list:
                 r = cell // 9
                 c = cell % 9
