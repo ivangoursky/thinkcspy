@@ -52,6 +52,12 @@ def test_board(b, nsol = 1, ngiven = None):
     for s in solutions:
         print(sudoku_state2str(s))
 
+def generate_annealing_and_test(sud, n, maxiter = 1000):
+     sud.state=generate_random_filled_board(sud,1)[0]
+     board = sud.generate_board_annealing(n, maxiter, False)
+     test_board(board,1,n)
+
+
 if __name__ == "__main__":
 
     sud = Sudoku(board_1solution)

@@ -1,15 +1,36 @@
 import copy
 import random
 
+bits2list_cache = []
+
+def init_bits2list_cache():
+    for i in range(512):
+        tmp = []
+        for j in range(9):
+            if (i & (1 << j)) !=0:
+                tmp.append(j+1)
+        bits2list_cache.append(tuple(tmp))
+
+
+def bits2list(n):
+    return list(bits2list_cache[n])
+
+def list2bits(vals):
+    res = 0
+    for i in vals:
+        res = res | (1 << (i - 1))
+
+    return res
+
 
 def poss2list(poss):
-    """ Covert a solution represented as a 9x9 matrix, elements of which are sets
-    (with exactly one element) to the matrix of integers"""
+    """ Covert a solution represented as a 9x9 matrix, elements of which are bit-encoded sets
+     to the matrix of integers"""
     res = []
     for row in poss:
         tmp = []
         for cell in row:
-            tmp.append(list(cell)[0])
+            tmp.append(bits2list(cell)[0])
         res.append(tmp)
 
     return res
@@ -34,11 +55,11 @@ def max_index(x):
     return best_idx
 
 def is_solved(poss):
-    """ Given a matrix of possibilities (each element is a set, representing possible values for the cell),
+    """ Given a matrix of possibilities (each element is a bit-encoded set, representing possible values for the cell),
     check if it is a solution (only one possibility for eac cell)"""
     for r in range(9):
         for c in range(9):
-            if len(poss[r][c])>1:
+            if len(bits2list(poss[r][c]))>1:
                 return False
 
     return True
@@ -135,9 +156,8 @@ class Sudoku:
             if i != row:
                 if self.state[i][col] != 0 and (self.state[i][col] in res):
                     res.remove(self.state[i][col])
-
-        if len(res) == 0:
-            return res
+                    if len(res) == 0:
+                        return list(res)
 
         # check for conflicting values in the 3x3 square
         sq_row = row // 3
@@ -147,6 +167,8 @@ class Sudoku:
                 if not (r == row and c == col):
                     if self.state[r][c] != 0 and (self.state[r][c] in res):
                         res.remove(self.state[r][c])
+                        if len(res) == 0:
+                            return list(res)
 
         return list(res)
 
@@ -187,18 +209,19 @@ class Sudoku:
 
         return True
 
-    def remove_possibility(self, poss, row, col, cell_val, undo):
+    def remove_possibility(self, poss, row, col, cell_val_bit, undo):
         """Remove cell_val from the set of possible values of the cell at row and col,
         save data for undo in the undo dictionary.
         In case only 1 possibility is left, call update_possibilities for that cells.
         Return true if all updates were successful, and false if we met conflicts."""
         if undo.get((row, col)) is None:
-            undo[(row, col)] = set(poss[row][col])  # make a copy!
+            undo[(row, col)] = poss[row][col]  #just assign a value, we encode set as bits in integer
 
-        poss[row][col].remove(cell_val)
-        if len(poss[row][col]) == 0:
+        poss[row][col] = poss[row][col] & (~cell_val_bit)
+        l = len(bits2list(poss[row][col]))
+        if l == 0:
             return False
-        elif len(poss[row][col]) == 1:
+        elif l == 1:
             return self.update_possibilities(poss, row, col, undo)
 
         return True
@@ -206,20 +229,20 @@ class Sudoku:
     def update_possibilities(self, poss, row, col, undo):
         """ Update sets of possible values, after setting the cell at row and col.
         Return true if all updates were successful, and false if we met conflicts."""
-        cur_val = list(poss[row][col])[0]
+        cur_val_bit = poss[row][col]
 
         # check for conflicting values in the row
         for i in range(9):
             if i != col:
-                if cur_val in poss[row][i]:
-                    if not self.remove_possibility(poss, row, i, cur_val, undo):
+                if (poss[row][i] & cur_val_bit) != 0:
+                    if not self.remove_possibility(poss, row, i, cur_val_bit, undo):
                         return False  # setting cell makes the solution impossible
 
         # check for conflicting values in the column
         for i in range(9):
             if i != row:
-                if cur_val in poss[i][col]:
-                    if not self.remove_possibility(poss, i, col, cur_val, undo):
+                if (poss[i][col] & cur_val_bit) != 0:
+                    if not self.remove_possibility(poss, i, col, cur_val_bit, undo):
                         return False
 
         # check for conflicting values in the 3x3 square
@@ -228,8 +251,8 @@ class Sudoku:
         for r in range(sq_row * 3, sq_row * 3 + 3):
             for c in range(sq_col * 3, sq_col * 3 + 3):
                 if not (r == row and c == col):
-                    if cur_val in poss[r][c]:
-                        if not self.remove_possibility(poss, r, c, cur_val, undo):
+                    if (poss[r][c] & cur_val_bit) != 0:
+                        if not self.remove_possibility(poss, r, c, cur_val_bit, undo):
                             return False
 
         return True
@@ -246,7 +269,7 @@ class Sudoku:
             for i in range(n, len(empty_idx)):
                 r = empty_idx[i] // 9
                 c = empty_idx[i] % 9
-                l = len(poss[r][c])
+                l = len(bits2list(poss[r][c]))
                 if l < min_poss:
                     min_poss = l
                     min_poss_idx = i
@@ -263,7 +286,7 @@ class Sudoku:
             c = empty_idx[n] % 9
 
             # values to try for the cell
-            possibilities = list(poss[r][c])
+            possibilities = bits2list(poss[r][c])
 
             if len(possibilities) == 1:
                 #no need for excessive loops and calls, when we have only 1 possibility
@@ -281,8 +304,7 @@ class Sudoku:
             for i in possibilities:
                 undo = {}
                 undo[(r, c)] = poss[r][c]
-                poss[r][c] = set()
-                poss[r][c].add(i)
+                poss[r][c] = 1 << (i-1)
 
                 if not self.update_possibilities(poss, r, c, undo):
                     make_possibilities_undo(poss, undo)
@@ -291,17 +313,10 @@ class Sudoku:
                 if n < len(empty_idx) - 1:
                     # try substituting numbers to the next cell
                     try_cell(n + 1, poss)
-                else:
-                    # solution found
-                    res.append(poss2list(poss))
-                    # stop, if we have to found only the first solution
-                    if len(res) >= nsolutions:
-                        make_possibilities_undo(poss, undo)
-                        break
 
                 make_possibilities_undo(poss, undo)
 
-                # stop trying possibilities, if we need only one solution, and have found it deeper in the recursion
+                #exit, if we have found enough solutions
                 if len(res) >= nsolutions:
                     break
 
@@ -333,20 +348,20 @@ class Sudoku:
             tmp = []
             for c in range(9):
                 if self.state[r][c] != 0:
-                    cell_poss = set()
-                    cell_poss.add(self.state[r][c])
+                    cell_poss = 1 << (self.state[r][c] - 1) #integer!
                     tmp.append(cell_poss)
                 else:
-                    cell_poss = set(self.cell_get_possibilities(r, c))
-                    if len(cell_poss) == 0:
+                    cell_poss_list = set(self.cell_get_possibilities(r, c))
+                    if len(cell_poss_list) == 0:
                         return res  # can't solve this board
+                    cell_poss = list2bits(cell_poss_list)
                     tmp.append(cell_poss)
 
             possibilities.append(tmp)
 
         for r in range(9):
             for c in range(9):
-                if len(possibilities[r][c]) == 1:
+                if len(bits2list(possibilities[r][c])) == 1:
                     dummy = {}
                     if not self.update_possibilities(possibilities, r, c, dummy):
                         return res
@@ -361,11 +376,10 @@ class Sudoku:
         empty_idx = []
         for r in range(9):
             for c in range(9):
-                if len(possibilities[r][c])>1:
+                if len(bits2list(possibilities[r][c]))>1:
                     empty_idx.append(r * 9 + c)
 
         try_cell(0, possibilities)
-
         return res
 
     def clear_issolvable_cache(self):
@@ -643,3 +657,5 @@ class Sudoku:
 
         self.state = src_board
         return res
+
+init_bits2list_cache()
