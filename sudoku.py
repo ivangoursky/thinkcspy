@@ -569,24 +569,12 @@ class Sudoku:
         for iter in range(max_rounds):
             #print("|" * (len(given_cells) - ncells_leave))
             #find cells, which we could remove
-            could_remove = set()
-            for cell in given_cells:
-                r = cell // 9
-                c = cell % 9
-                old_value = self.state[r][c]
-                self.state[r][c] = 0
-                if len(self.solve_board(False, False, 2)) == 1:
-                    could_remove.add(r * 9 + c)
-                self.state[r][c] = old_value
+            given_cells_list = list(given_cells)
+            self.my_shuffle(given_cells_list)
 
-            #shuffle list of removable cells
-            could_remove_list = list(could_remove)
-            if len(could_remove_list)>0:
-                self.my_shuffle(could_remove_list)
-
-            #remove the cells, until we reach the necessary amount of given cells,
+            #try to remove the cells, until we reach the necessary amount of given cells,
             #or we can't remove cells anymore
-            for cell in could_remove_list:
+            for cell in given_cells_list:
                 r = cell // 9
                 c = cell % 9
                 old_value = self.state[r][c]
@@ -629,7 +617,8 @@ class Sudoku:
             #if we can change the resulting solution, generate a new board,
             #but keep the values of given cells
             if not keep_solution:
-                new_board = self.solve_board(True, True, 1)[0]
+                new_solutions = self.solve_board(True, False, 1)
+                new_board = new_solutions[0]
 
             #try open some cells, until the board is solvable again
             for cell in empty_cells_list:
