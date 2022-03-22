@@ -37,10 +37,12 @@ def poss2list(poss):
 
 
 def make_possibilities_undo(poss, undo):
-    """ Undo changes to the possibilities matrix poss, specified in the dictionary undo"""
-    for (rc, restore) in undo.items():
-        (r, c) = rc
-        poss[r][c] = restore
+    """ Undo changes to the possibilities matrix poss, specified in the undo matrix"""
+    for r in range(9):
+        for c in range(9):
+            if undo[r][c] != 0:
+                poss[r][c] = undo[r][c]
+                undo[r][c] = 0
 
 
 def max_index(x):
@@ -211,14 +213,14 @@ class Sudoku:
 
     def remove_possibility(self, poss, row, col, cell_val_bit, undo):
         """Remove cell_val from the set of possible values of the cell at row and col,
-        save data for undo in the undo dictionary.
+        save data for undo in the undo matrix.
         In case only 1 possibility is left, call update_possibilities for that cells.
         Return true if all updates were successful, and false if we met conflicts."""
-        if undo.get((row, col)) is None:
-            undo[(row, col)] = poss[row][col]  #just assign a value, we encode set as bits in integer
+        if undo[row][col]==0:
+            undo[row][col] = poss[row][col]  #just assign a value, we encode set as bits in integer
 
         poss[row][col] = poss[row][col] & (~cell_val_bit)
-        l = len(bits2list(poss[row][col]))
+        l = len(bits2list_cache[poss[row][col]])
         if l == 0:
             return False
         elif l == 1:
@@ -269,7 +271,7 @@ class Sudoku:
             for i in range(n, len(empty_idx)):
                 r = empty_idx[i] // 9
                 c = empty_idx[i] % 9
-                l = len(bits2list(poss[r][c]))
+                l = len(bits2list_cache[poss[r][c]])
                 if l < min_poss:
                     min_poss = l
                     min_poss_idx = i
@@ -286,7 +288,7 @@ class Sudoku:
             c = empty_idx[n] % 9
 
             # values to try for the cell
-            possibilities = bits2list(poss[r][c])
+            possibilities = bits2list_cache[poss[r][c]]
 
             if len(possibilities) == 1:
                 #no need for excessive loops and calls, when we have only 1 possibility
@@ -299,11 +301,12 @@ class Sudoku:
                 return
 
             if shuffle_possibilities:
+                possibilities = list(possibilities)
                 self.my_shuffle(possibilities)
 
+            undo = [[0 for col in range(9)] for row in range(9)]
             for i in possibilities:
-                undo = {}
-                undo[(r, c)] = poss[r][c]
+                undo[r][c] = poss[r][c]
                 poss[r][c] = 1 << (i-1)
 
                 if not self.update_possibilities(poss, r, c, undo):
@@ -345,24 +348,20 @@ class Sudoku:
 
         possibilities = []
         for r in range(9):
-            tmp = []
+            tmp = [0] * 9
             for c in range(9):
                 if self.state[r][c] != 0:
                     cell_poss = 1 << (self.state[r][c] - 1) #integer!
-                    tmp.append(cell_poss)
+                    tmp[c] = cell_poss
                 else:
-                    cell_poss_list = set(self.cell_get_possibilities(r, c))
-                    if len(cell_poss_list) == 0:
-                        return res  # can't solve this board
-                    cell_poss = list2bits(cell_poss_list)
-                    tmp.append(cell_poss)
+                    tmp[c] = 511
 
             possibilities.append(tmp)
 
         for r in range(9):
             for c in range(9):
-                if len(bits2list(possibilities[r][c])) == 1:
-                    dummy = {}
+                if len(bits2list_cache[possibilities[r][c]]) == 1:
+                    dummy = [[0 for col in range(9)] for row in range(9)]
                     if not self.update_possibilities(possibilities, r, c, dummy):
                         return res
 
