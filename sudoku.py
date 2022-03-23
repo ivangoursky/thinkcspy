@@ -12,8 +12,8 @@ def init_bits2list_cache():
         bits2list_cache.append(tuple(tmp))
 
 
-def bits2list(n):
-    return list(bits2list_cache[n])
+# def bits2list(n):
+#     return list(bits2list_cache[n])
 
 def list2bits(vals):
     res = 0
@@ -30,19 +30,10 @@ def poss2list(poss):
     for row in poss:
         tmp = []
         for cell in row:
-            tmp.append(bits2list(cell)[0])
+            tmp.append(bits2list_cache[cell][0])
         res.append(tmp)
 
     return res
-
-
-def make_possibilities_undo(poss, undo):
-    """ Undo changes to the possibilities matrix poss, specified in the undo matrix"""
-    for r in range(9):
-        for c in range(9):
-            if undo[r][c] != 0:
-                poss[r][c] = undo[r][c]
-                undo[r][c] = 0
 
 
 def max_index(x):
@@ -61,7 +52,7 @@ def is_solved(poss):
     check if it is a solution (only one possibility for eac cell)"""
     for r in range(9):
         for c in range(9):
-            if len(bits2list(poss[r][c]))>1:
+            if len(bits2list_cache[poss[r][c]])>1:
                 return False
 
     return True
@@ -211,41 +202,50 @@ class Sudoku:
 
         return True
 
-    def remove_possibility(self, poss, row, col, cell_val_bit, undo):
-        """Remove cell_val from the set of possible values of the cell at row and col,
-        save data for undo in the undo matrix.
-        In case only 1 possibility is left, call update_possibilities for that cells.
-        Return true if all updates were successful, and false if we met conflicts."""
-        if undo[row][col]==0:
-            undo[row][col] = poss[row][col]  #just assign a value, we encode set as bits in integer
+    # def remove_possibility(self, poss, row, col, cell_val_bit):
+    #     """Remove cell_val from the set of possible values of the cell at row and col,
+    #     save data for undo in the undo matrix.
+    #     In case only 1 possibility is left, call update_possibilities for that cells.
+    #     Return true if all updates were successful, and false if we met conflicts."""
+    #
+    #     poss[row][col] = poss[row][col] & (~cell_val_bit)
+    #     l = len(bits2list_cache[poss[row][col]])
+    #     if l == 0:
+    #         return False
+    #     elif l == 1:
+    #         return self.update_possibilities(poss, row, col)
+    #
+    #     return True
 
-        poss[row][col] = poss[row][col] & (~cell_val_bit)
-        l = len(bits2list_cache[poss[row][col]])
-        if l == 0:
-            return False
-        elif l == 1:
-            return self.update_possibilities(poss, row, col, undo)
-
-        return True
-
-    def update_possibilities(self, poss, row, col, undo):
+    def update_possibilities(self, poss, row, col):
         """ Update sets of possible values, after setting the cell at row and col.
         Return true if all updates were successful, and false if we met conflicts."""
         cur_val_bit = poss[row][col]
+        cur_val_mask = ~cur_val_bit
+
+        update_list = []
 
         # check for conflicting values in the row
         for i in range(9):
             if i != col:
                 if (poss[row][i] & cur_val_bit) != 0:
-                    if not self.remove_possibility(poss, row, i, cur_val_bit, undo):
-                        return False  # setting cell makes the solution impossible
+                    poss[row][i] = poss[row][i] & cur_val_mask
+                    l = len(bits2list_cache[poss[row][i]])
+                    if l == 0:
+                        return False
+                    elif l == 1:
+                        update_list.append((row, i))
 
         # check for conflicting values in the column
         for i in range(9):
             if i != row:
                 if (poss[i][col] & cur_val_bit) != 0:
-                    if not self.remove_possibility(poss, i, col, cur_val_bit, undo):
+                    poss[i][col] = poss[i][col] & cur_val_mask
+                    l = len(bits2list_cache[poss[i][col]])
+                    if l == 0:
                         return False
+                    elif l == 1:
+                        update_list.append((i, col))
 
         # check for conflicting values in the 3x3 square
         sq_row = row // 3
@@ -254,8 +254,79 @@ class Sudoku:
             for c in range(sq_col * 3, sq_col * 3 + 3):
                 if not (r == row and c == col):
                     if (poss[r][c] & cur_val_bit) != 0:
-                        if not self.remove_possibility(poss, r, c, cur_val_bit, undo):
+                        poss[r][c] = poss[r][c] & cur_val_mask
+                        l = len(bits2list_cache[poss[r][c]])
+                        if l == 0:
                             return False
+                        elif l == 1:
+                            update_list.append((r, c))
+
+        #check, if we have only one cell, were value is possible in a row, column, or 3x3 square
+        #check for "one in row"
+        value_positions = [0] * 9
+        for i in range(9):
+            cell_poss = bits2list_cache[poss[row][i]]
+            for val in cell_poss:
+                value_positions[val - 1] = value_positions[val - 1] | (1 << i)
+
+        #print(value_positions)
+
+        for val in range(9):
+            curval_pos = bits2list_cache[value_positions[val]]
+            if len(curval_pos) == 1:
+                cur = curval_pos[0] - 1
+                if len(bits2list_cache[poss[row][cur]]) != 1:
+                    poss[row][cur] = 1 << val
+                    update_list.append((row, cur))
+            elif len(curval_pos) == 0:
+                return False
+
+        #check for "one in column"
+        value_positions = [0] * 9
+        for i in range(9):
+            cell_poss = bits2list_cache[poss[i][col]]
+            for val in cell_poss:
+                value_positions[val - 1] = value_positions[val - 1] | (1 << i)
+
+        #print(value_positions)
+
+        for val in range(9):
+            curval_pos = bits2list_cache[value_positions[val]]
+            if len(curval_pos) == 1:
+                cur = curval_pos[0] - 1
+                if len(bits2list_cache[poss[cur][col]]) != 1:
+                    poss[cur][col] = 1 << val
+                    update_list.append((cur, col))
+            elif len(curval_pos) == 0:
+                return False
+
+        #check for one in 3x3 square
+        value_positions = [0] * 9
+        for r in range(3):
+            for c in range(3):
+                cell_poss = bits2list_cache[poss[sq_row * 3 + r][sq_col * 3 + c]]
+                for val in cell_poss:
+                    value_positions[val - 1] = value_positions[val - 1] | (1 << (r * 3 + c))
+
+        #print(value_positions)
+
+        for val in range(9):
+            curval_pos = bits2list_cache[value_positions[val]]
+            if len(curval_pos) == 1:
+                cur = curval_pos[0] - 1
+                r = sq_row * 3 + cur // 3
+                c = sq_col * 3 + cur % 3
+                if len(bits2list_cache[poss[r][c]]) != 1:
+                    poss[r][c] = 1 << val
+                    update_list.append((r, c))
+            elif len(curval_pos) == 0:
+                return False
+
+        #update conflicts for recently found cells with 1 possibility
+        #print(len(update_list))
+        for (r,c) in update_list:
+            if not self.update_possibilities(poss, r, c):
+                return False
 
         return True
 
@@ -304,20 +375,19 @@ class Sudoku:
                 possibilities = list(possibilities)
                 self.my_shuffle(possibilities)
 
-            undo = [[0 for col in range(9)] for row in range(9)]
             for i in possibilities:
-                undo[r][c] = poss[r][c]
+                poss_bak = copy.deepcopy(poss)
                 poss[r][c] = 1 << (i-1)
 
-                if not self.update_possibilities(poss, r, c, undo):
-                    make_possibilities_undo(poss, undo)
+                if not self.update_possibilities(poss, r, c):
+                    poss = poss_bak
                     continue
 
                 if n < len(empty_idx) - 1:
                     # try substituting numbers to the next cell
                     try_cell(n + 1, poss)
 
-                make_possibilities_undo(poss, undo)
+                poss = poss_bak
 
                 #exit, if we have found enough solutions
                 if len(res) >= nsolutions:
@@ -361,8 +431,7 @@ class Sudoku:
         for r in range(9):
             for c in range(9):
                 if len(bits2list_cache[possibilities[r][c]]) == 1:
-                    dummy = [[0 for col in range(9)] for row in range(9)]
-                    if not self.update_possibilities(possibilities, r, c, dummy):
+                    if not self.update_possibilities(possibilities, r, c):
                         return res
 
         if is_solved(possibilities):
@@ -375,7 +444,7 @@ class Sudoku:
         empty_idx = []
         for r in range(9):
             for c in range(9):
-                if len(bits2list(possibilities[r][c]))>1:
+                if len(bits2list_cache[possibilities[r][c]])>1:
                     empty_idx.append(r * 9 + c)
 
         try_cell(0, possibilities)
