@@ -667,7 +667,7 @@ class Sudoku:
             return res
 
         for iter in range(max_rounds):
-            #print("|" * (len(given_cells) - ncells_leave))
+            print("|" * (len(given_cells) - ncells_leave))
             #find cells, which we could remove
             given_cells_list = list(given_cells)
             self.my_shuffle(given_cells_list)
@@ -713,6 +713,9 @@ class Sudoku:
             if not keep_solution:
                 new_solutions = self.solve_board(True, False, 1)
                 new_board = new_solutions[0]
+                self.state[r][c] = new_board[r][c]
+                if len(self.solve_board(False, False, 2)) == 1:
+                    continue
             else:
                 # remove the selected cell from the given cells set
                 # but don't add to the free cells set yet, to avoid immediate return of that cell
@@ -720,24 +723,24 @@ class Sudoku:
                 given_cells.remove(cell_to_remove)
 
             #try open some cells, until the board is solvable again
-            cells_to_try = []
-            key_cells = self.find_key_cells(True)
-            for i in key_cells:
-                if i in empty_cells:
-                    cells_to_try.append(i)
+            empty_cells_list = list(empty_cells)
 
-            #self.my_shuffle(cells_to_try)
+            for cell in empty_cells_list:
+                key_cells = self.find_key_cells(True)
+                for i in key_cells:
+                    if i in empty_cells:
+                        add_cell = i
+                        break
 
-            for cell in cells_to_try:
-                r = cell // 9
-                c = cell % 9
+                r = add_cell // 9
+                c = add_cell % 9
                 if keep_solution:
                     self.state[r][c] = src_board[r][c]
                 else:
                     if src_board[r][c]!=0:
                         self.state[r][c] = new_board[r][c]
-                empty_cells.remove(cell)
-                given_cells.add(cell)
+                empty_cells.remove(add_cell)
+                given_cells.add(add_cell)
                 # check if the board is solvable now
                 if len(self.solve_board(False, False, 2)) == 1:
                     success = True
