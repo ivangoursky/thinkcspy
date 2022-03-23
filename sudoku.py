@@ -667,7 +667,7 @@ class Sudoku:
             return res
 
         for iter in range(max_rounds):
-            print("|" * (len(given_cells) - ncells_leave))
+            #print("|" * (len(given_cells) - ncells_leave))
             #find cells, which we could remove
             given_cells_list = list(given_cells)
             self.my_shuffle(given_cells_list)
