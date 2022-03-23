@@ -1,4 +1,3 @@
-import copy
 import random
 
 bits2list_cache = []
@@ -67,6 +66,9 @@ def sudoku_state2str(state):
 
     return res
 
+def copy_state(state):
+    return [[state[row][col] for col in range(9)] for row in range(9)]
+
 
 class Sudoku:
     """ Class for 9x9 Sudoku board manipulation (standard rules) """
@@ -84,7 +86,7 @@ class Sudoku:
                         my_error = ValueError("{0} is not a valid Sudoku cell content!".format(cell))
                         raise my_error
 
-            self.state = copy.deepcopy(init_state)
+            self.state = copy_state(init_state)
 
         # initialize RNG
         rng = random.Random()
@@ -330,6 +332,27 @@ class Sudoku:
 
         return True
 
+    def try_simple_solution(self):
+        possibilities = []
+        for r in range(9):
+            tmp = [0] * 9
+            for c in range(9):
+                if self.state[r][c] != 0:
+                    cell_poss = 1 << (self.state[r][c] - 1)  # integer!
+                    tmp[c] = cell_poss
+                else:
+                    tmp[c] = 511
+
+            possibilities.append(tmp)
+
+        for r in range(9):
+            for c in range(9):
+                if len(bits2list_cache[possibilities[r][c]]) == 1:
+                    if not self.update_possibilities(possibilities, r, c):
+                        return None
+
+        return possibilities
+
     def solve_board(self, shuffle_idx=True, shuffle_possibilities=True, nsolutions=1):
         """ Find solution(s) for the board"""
 
@@ -376,7 +399,7 @@ class Sudoku:
                 self.my_shuffle(possibilities)
 
             for i in possibilities:
-                poss_bak = copy.deepcopy(poss)
+                poss_bak = copy_state(poss)
                 poss[r][c] = 1 << (i-1)
 
                 if not self.update_possibilities(poss, r, c):
@@ -409,30 +432,13 @@ class Sudoku:
 
         # return the current board, if it has no conflicts and empty cells
         if len(empty_idx) == 0:
-            res.append(copy.deepcopy(self.state))
+            res.append(copy_state(self.state))
             return res
 
-        # shuffle indices, if randomization is allowed
-        if shuffle_idx:
-            self.my_shuffle(empty_idx)
+        possibilities = self.try_simple_solution()
 
-        possibilities = []
-        for r in range(9):
-            tmp = [0] * 9
-            for c in range(9):
-                if self.state[r][c] != 0:
-                    cell_poss = 1 << (self.state[r][c] - 1) #integer!
-                    tmp[c] = cell_poss
-                else:
-                    tmp[c] = 511
-
-            possibilities.append(tmp)
-
-        for r in range(9):
-            for c in range(9):
-                if len(bits2list_cache[possibilities[r][c]]) == 1:
-                    if not self.update_possibilities(possibilities, r, c):
-                        return res
+        if possibilities is None:
+            return res
 
         if is_solved(possibilities):
             #return the solution, if the board has been successfully solved
@@ -446,6 +452,10 @@ class Sudoku:
             for c in range(9):
                 if len(bits2list_cache[possibilities[r][c]])>1:
                     empty_idx.append(r * 9 + c)
+
+        # shuffle indices, if randomization is allowed
+        if shuffle_idx:
+            self.my_shuffle(empty_idx)
 
         try_cell(0, possibilities)
         return res
@@ -481,7 +491,7 @@ class Sudoku:
             """ Remove the cell at index n of the list """
             nonlocal res
             # make a local copy of cells_idx
-            cells_idx = copy.deepcopy(cells_idx)
+            cells_idx = list(cells_idx)
             #shuffle cells_idx for cells, not yet being tried to remove
             tmplist = cells_idx[(n + 1):]
             self.my_shuffle(tmplist)
@@ -506,7 +516,7 @@ class Sudoku:
                 if nsol == 1:
                     # board generated
                     if 80 - n == ncells_leave:
-                        res = copy.deepcopy(self.state)
+                        res = copy_state(self.state)
                         # cleanup
                         self.state[r][c] = old_value
                         return n
@@ -571,7 +581,7 @@ class Sudoku:
         if fast_remove > 0 and fast_remove <= (81 - ncells_leave):
             success = False
             for i in range(100):
-                bak = copy.deepcopy(self.state)
+                bak = copy_state(self.state)
 
                 self.my_shuffle(cells_idx)
                 for j in range(fast_remove):
@@ -591,7 +601,7 @@ class Sudoku:
                     break
 
             if success:
-                bak = copy.deepcopy(self.state)
+                bak = copy_state(self.state)
                 for j in range(fast_remove):
                     r = cells_idx[j] // 9
                     c = cells_idx[j] % 9
@@ -606,14 +616,36 @@ class Sudoku:
             remove_cell(-1, cells_idx)
         return res
 
-    def generate_board_annealing(self, ncells_leave=40, max_rounds=10000, keep_solution = True):
+    def find_key_cells(self, randomize = False):
+        """ Find cells which we couldn't solve using simple exclusion, and only one in... rule"""
+        poss = self.try_simple_solution()
+        cells_by_nposs = [[] for i in range(9)]
+        for r in range(9):
+            for c in range(9):
+                l = len(bits2list_cache[poss[r][c]])
+                if l > 1:
+                    cells_by_nposs[l-1].append(r * 9 + c)
+
+        res = []
+        for i in range(8):
+            if len(cells_by_nposs[8-i]) > 0:
+                tmp = list(cells_by_nposs[8-i])
+                if randomize:
+                    self.my_shuffle(tmp)
+
+                for j in tmp:
+                    res.append(j)
+
+        return res
+
+    def generate_board_annealing(self, ncells_leave=40, max_rounds=10000, keep_solution=True):
         """
         Generate a board with one solution, by removing cells one by one from the current board.
         Current board could have empty cells
         """
 
         # backup copy of the current field
-        src_board = copy.deepcopy(self.state)
+        src_board = copy_state(self.state)
 
         given_cells = set()
         empty_cells = set()
@@ -652,7 +684,7 @@ class Sudoku:
                 if len(self.solve_board(False, False, 2)) == 1:
                     #a board with required number of given cells successfully generated
                     if len(given_cells) == ncells_leave:
-                        res = copy.deepcopy(self.state)
+                        res = copy_state(self.state)
                         self.state = src_board
                         return res
                 else:
@@ -663,9 +695,9 @@ class Sudoku:
 
             # we have remote the cells we could, no try to remove random cell,
             #and "open" random positions, until the board is solvable again
-            board_bak_rmcell = copy.deepcopy(self.state)
-            given_cells_bak = copy.deepcopy(given_cells)
-            empty_cells_bak = copy.deepcopy(empty_cells)
+            board_bak_rmcell = copy_state(self.state)
+            given_cells_bak = set(list(given_cells))
+            empty_cells_bak = set(list(empty_cells))
 
             given_cells_list = list(given_cells)
             self.my_shuffle(given_cells_list)
@@ -673,23 +705,30 @@ class Sudoku:
             r = cell_to_remove // 9
             c = cell_to_remove % 9
             self.state[r][c] = 0
-            # remove the selected cell from the given cells set
-            # but don't add to the free cells set yet, to avoid immediate return of that cell
-            # while the next steps
-            given_cells.remove(cell_to_remove)
 
             success = False
-            empty_cells_list = list(empty_cells)
-            self.my_shuffle(empty_cells_list)
 
             #if we can change the resulting solution, generate a new board,
             #but keep the values of given cells
             if not keep_solution:
                 new_solutions = self.solve_board(True, False, 1)
                 new_board = new_solutions[0]
+            else:
+                # remove the selected cell from the given cells set
+                # but don't add to the free cells set yet, to avoid immediate return of that cell
+                # while the next steps
+                given_cells.remove(cell_to_remove)
 
             #try open some cells, until the board is solvable again
-            for cell in empty_cells_list:
+            cells_to_try = []
+            key_cells = self.find_key_cells(True)
+            for i in key_cells:
+                if i in empty_cells:
+                    cells_to_try.append(i)
+
+            #self.my_shuffle(cells_to_try)
+
+            for cell in cells_to_try:
                 r = cell // 9
                 c = cell % 9
                 if keep_solution:
@@ -704,8 +743,9 @@ class Sudoku:
                     success = True
                     break
 
-            # now add the removed cell to the empty cells list
-            empty_cells.add(cell_to_remove)
+            if keep_solution:
+                # now add the removed cell to the empty cells list
+                empty_cells.add(cell_to_remove)
 
             # check if we successfully removed one cell, and added another one
             # if not, cleanup

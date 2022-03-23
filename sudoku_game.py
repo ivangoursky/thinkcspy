@@ -1,8 +1,5 @@
-import math
-
 import pygame
 import sudoku
-import copy
 import time
 import random
 from tkinter import messagebox
@@ -37,7 +34,7 @@ def generate_one_field(ngiven=23, randseed = None):
         ]
         #find first solution for this field, using randomization in solve_board
         solutions = sud.solve_board(True, True, 1)
-        sud.state = copy.deepcopy(solutions[0])
+        sud.state = sudoku.copy_state(solutions[0])
 
         #try to remove some cells and leave ngiven cells, using simulated annealing-like method
         board = sud.generate_board_annealing(ngiven, 500, False)
@@ -119,7 +116,7 @@ class SudokuField:
         field = generate_one_field(ngiven, randseed)
         if field is not None:
             self.sudoku = sudoku.Sudoku(field)
-            self.src_field = copy.deepcopy(self.sudoku.state)
+            self.src_field = sudoku.copy_state(self.sudoku.state)
             self.sudoku_number=sud_num
         else:
             messagebox.showinfo(title = "Warning",message="Could not generate sudoku, try one more time")
@@ -138,7 +135,7 @@ class SudokuField:
             ch = pygame.key.name(key)
 
             if ch == "c":
-                self.sudoku.state = copy.deepcopy(self.src_field)
+                self.sudoku.state = sudoku.copy_state(self.src_field)
 
             if "0123456789".__contains__(ch):
                 if self.selection is not None:
@@ -282,6 +279,9 @@ class TextInput:
                 return
 
             ch = pygame.key.name(key)
+            if len(ch) > 1: #some special key
+                return
+
             if len(self.text)<self.max_len:
                 self.text = self.text + ch
 
