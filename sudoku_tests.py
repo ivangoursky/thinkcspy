@@ -58,6 +58,12 @@ def generate_annealing_and_test(sud, n, maxiter = 1000):
      test_board(board,1,n)
 
 
+def generate_from_bottom_and_test(sud, n):
+    sud.state = generate_random_filled_board(sud, 1)[0]
+    board = sud.generate_from_bottom(n)
+    test_board(board, 1, n)
+
+
 if __name__ == "__main__":
 
     sud = Sudoku(board_1solution)
@@ -78,6 +84,11 @@ if __name__ == "__main__":
     solutions = generate_random_filled_board(sud, 1)
     for s in solutions:
         print(sudoku_state2str(s))
+
+    # ngiven = 27
+    # print("Trying to generate sudoku's with {0} given, from bottom".format(ngiven))
+    # for i in range(3):
+    #     generate_from_bottom_and_test(sud, ngiven)
 
     ngiven = 25
     print("Trying to generate sudoku's with {0} given, using recursive algorithm".format(ngiven))

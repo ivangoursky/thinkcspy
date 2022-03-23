@@ -1,4 +1,5 @@
 import random
+#import time
 
 bits2list_cache = []
 
@@ -26,10 +27,11 @@ def poss2list(poss):
     """ Covert a solution represented as a 9x9 matrix, elements of which are bit-encoded sets
      to the matrix of integers"""
     res = []
-    for row in poss:
+    for r in range(9):
         tmp = []
-        for cell in row:
-            tmp.append(bits2list_cache[cell][0])
+        for c in range(9):
+            tmp.append(bits2list_cache[poss[r * 9 + c]][0])
+
         res.append(tmp)
 
     return res
@@ -51,7 +53,7 @@ def is_solved(poss):
     check if it is a solution (only one possibility for eac cell)"""
     for r in range(9):
         for c in range(9):
-            if len(bits2list_cache[poss[r][c]])>1:
+            if len(bits2list_cache[poss[r * 9 + c]])>1:
                 return False
 
     return True
@@ -222,7 +224,7 @@ class Sudoku:
     def update_possibilities(self, poss, row, col):
         """ Update sets of possible values, after setting the cell at row and col.
         Return true if all updates were successful, and false if we met conflicts."""
-        cur_val_bit = poss[row][col]
+        cur_val_bit = poss[row * 9 + col]
         cur_val_mask = ~cur_val_bit
 
         update_list = []
@@ -230,9 +232,10 @@ class Sudoku:
         # check for conflicting values in the row
         for i in range(9):
             if i != col:
-                if (poss[row][i] & cur_val_bit) != 0:
-                    poss[row][i] = poss[row][i] & cur_val_mask
-                    l = len(bits2list_cache[poss[row][i]])
+                idx = row * 9 + i
+                if (poss[idx] & cur_val_bit) != 0:
+                    poss[idx] = poss[idx] & cur_val_mask
+                    l = len(bits2list_cache[poss[idx]])
                     if l == 0:
                         return False
                     elif l == 1:
@@ -241,9 +244,10 @@ class Sudoku:
         # check for conflicting values in the column
         for i in range(9):
             if i != row:
-                if (poss[i][col] & cur_val_bit) != 0:
-                    poss[i][col] = poss[i][col] & cur_val_mask
-                    l = len(bits2list_cache[poss[i][col]])
+                idx = i * 9 + col
+                if (poss[idx] & cur_val_bit) != 0:
+                    poss[idx] = poss[idx] & cur_val_mask
+                    l = len(bits2list_cache[poss[idx]])
                     if l == 0:
                         return False
                     elif l == 1:
@@ -255,19 +259,27 @@ class Sudoku:
         for r in range(sq_row * 3, sq_row * 3 + 3):
             for c in range(sq_col * 3, sq_col * 3 + 3):
                 if not (r == row and c == col):
-                    if (poss[r][c] & cur_val_bit) != 0:
-                        poss[r][c] = poss[r][c] & cur_val_mask
-                        l = len(bits2list_cache[poss[r][c]])
+                    idx = r * 9 + c
+                    if (poss[idx] & cur_val_bit) != 0:
+                        poss[idx] = poss[idx] & cur_val_mask
+                        l = len(bits2list_cache[poss[idx]])
                         if l == 0:
                             return False
                         elif l == 1:
                             update_list.append((r, c))
 
+        # update conflicts for recently found cells with 1 possibility
+        # print(len(update_list))
+        for (r, c) in update_list:
+            if not self.update_possibilities(poss, r, c):
+                return False
+
+        update_list = []
         #check, if we have only one cell, were value is possible in a row, column, or 3x3 square
         #check for "one in row"
         value_positions = [0] * 9
         for i in range(9):
-            cell_poss = bits2list_cache[poss[row][i]]
+            cell_poss = bits2list_cache[poss[row * 9 + i]]
             for val in cell_poss:
                 value_positions[val - 1] = value_positions[val - 1] | (1 << i)
 
@@ -277,8 +289,8 @@ class Sudoku:
             curval_pos = bits2list_cache[value_positions[val]]
             if len(curval_pos) == 1:
                 cur = curval_pos[0] - 1
-                if len(bits2list_cache[poss[row][cur]]) != 1:
-                    poss[row][cur] = 1 << val
+                if len(bits2list_cache[poss[row * 9 + cur]]) != 1:
+                    poss[row * 9 + cur] = 1 << val
                     update_list.append((row, cur))
             elif len(curval_pos) == 0:
                 return False
@@ -286,7 +298,7 @@ class Sudoku:
         #check for "one in column"
         value_positions = [0] * 9
         for i in range(9):
-            cell_poss = bits2list_cache[poss[i][col]]
+            cell_poss = bits2list_cache[poss[i * 9 + col]]
             for val in cell_poss:
                 value_positions[val - 1] = value_positions[val - 1] | (1 << i)
 
@@ -296,8 +308,8 @@ class Sudoku:
             curval_pos = bits2list_cache[value_positions[val]]
             if len(curval_pos) == 1:
                 cur = curval_pos[0] - 1
-                if len(bits2list_cache[poss[cur][col]]) != 1:
-                    poss[cur][col] = 1 << val
+                if len(bits2list_cache[poss[cur * 9 + col]]) != 1:
+                    poss[cur * 9 + col] = 1 << val
                     update_list.append((cur, col))
             elif len(curval_pos) == 0:
                 return False
@@ -306,7 +318,7 @@ class Sudoku:
         value_positions = [0] * 9
         for r in range(3):
             for c in range(3):
-                cell_poss = bits2list_cache[poss[sq_row * 3 + r][sq_col * 3 + c]]
+                cell_poss = bits2list_cache[poss[(sq_row * 3 + r) * 9 + (sq_col * 3 + c)]]
                 for val in cell_poss:
                     value_positions[val - 1] = value_positions[val - 1] | (1 << (r * 3 + c))
 
@@ -318,8 +330,8 @@ class Sudoku:
                 cur = curval_pos[0] - 1
                 r = sq_row * 3 + cur // 3
                 c = sq_col * 3 + cur % 3
-                if len(bits2list_cache[poss[r][c]]) != 1:
-                    poss[r][c] = 1 << val
+                if len(bits2list_cache[poss[r * 9 + c]]) != 1:
+                    poss[r * 9 + c] = 1 << val
                     update_list.append((r, c))
             elif len(curval_pos) == 0:
                 return False
@@ -333,21 +345,16 @@ class Sudoku:
         return True
 
     def try_simple_solution(self):
-        possibilities = []
+        possibilities = [511] * 81
         for r in range(9):
             tmp = [0] * 9
             for c in range(9):
                 if self.state[r][c] != 0:
-                    cell_poss = 1 << (self.state[r][c] - 1)  # integer!
-                    tmp[c] = cell_poss
-                else:
-                    tmp[c] = 511
-
-            possibilities.append(tmp)
+                    possibilities[r * 9 + c] = 1 << (self.state[r][c] - 1)  # integer!
 
         for r in range(9):
             for c in range(9):
-                if len(bits2list_cache[possibilities[r][c]]) == 1:
+                if len(bits2list_cache[possibilities[r * 9 + c]]) == 1:
                     if not self.update_possibilities(possibilities, r, c):
                         return None
 
@@ -359,13 +366,27 @@ class Sudoku:
         def try_cell(n, poss):
             """ Resursively walk the empty cells and try different values """
 
+            #skip cells with 1 possibility
+            for i in range(n, len(empty_idx)):
+                r = empty_idx[i] // 9
+                c = empty_idx[i] % 9
+                l = len(bits2list_cache[poss[r * 9 + c]])
+                if l == 1:
+                    tmp = empty_idx[n]
+                    empty_idx[n] = empty_idx[i]
+                    empty_idx[i] = tmp
+                    n += 1
+
+            if n == len(empty_idx):
+                n = len(empty_idx) - 1
+
             # look for the cell with minimum possibilities
             min_poss = 10
             min_poss_idx = -1
             for i in range(n, len(empty_idx)):
                 r = empty_idx[i] // 9
                 c = empty_idx[i] % 9
-                l = len(bits2list_cache[poss[r][c]])
+                l = len(bits2list_cache[poss[r * 9 + c]])
                 if l < min_poss:
                     min_poss = l
                     min_poss_idx = i
@@ -382,16 +403,11 @@ class Sudoku:
             c = empty_idx[n] % 9
 
             # values to try for the cell
-            possibilities = bits2list_cache[poss[r][c]]
+            possibilities = bits2list_cache[poss[r * 9 + c]]
 
             if len(possibilities) == 1:
-                #no need for excessive loops and calls, when we have only 1 possibility
-                if n < len(empty_idx) - 1:
-                    # try substituting numbers to the next cell
-                    try_cell(n + 1, poss)
-                else:
-                    # solution found
-                    res.append(poss2list(poss))
+                #before we skiped all cells with 1 possibility, if only it isn't the last cell
+                res.append(poss2list(poss))
                 return
 
             if shuffle_possibilities:
@@ -399,8 +415,8 @@ class Sudoku:
                 self.my_shuffle(possibilities)
 
             for i in possibilities:
-                poss_bak = copy_state(poss)
-                poss[r][c] = 1 << (i-1)
+                poss_bak = list(poss)
+                poss[r * 9 + c] = 1 << (i-1)
 
                 if not self.update_possibilities(poss, r, c):
                     poss = poss_bak
@@ -416,6 +432,7 @@ class Sudoku:
                 if len(res) >= nsolutions:
                     break
 
+        #t0 = time.time()
         # initialize the list of results
         res = []
 
@@ -436,6 +453,7 @@ class Sudoku:
             return res
 
         possibilities = self.try_simple_solution()
+        #t1 = time.time()
 
         if possibilities is None:
             return res
@@ -450,7 +468,7 @@ class Sudoku:
         empty_idx = []
         for r in range(9):
             for c in range(9):
-                if len(bits2list_cache[possibilities[r][c]])>1:
+                if len(bits2list_cache[possibilities[r * 9 + c]])>1:
                     empty_idx.append(r * 9 + c)
 
         # shuffle indices, if randomization is allowed
@@ -458,6 +476,8 @@ class Sudoku:
             self.my_shuffle(empty_idx)
 
         try_cell(0, possibilities)
+        #t2 = time.time()
+        #print("Time to complete try_simple_solution {0}, to complete all {1}.".format(t1-t0,t2-t0))
         return res
 
     def clear_issolvable_cache(self):
@@ -622,7 +642,7 @@ class Sudoku:
         cells_by_nposs = [[] for i in range(9)]
         for r in range(9):
             for c in range(9):
-                l = len(bits2list_cache[poss[r][c]])
+                l = len(bits2list_cache[poss[r * 9 + c]])
                 if l > 1:
                     cells_by_nposs[l-1].append(r * 9 + c)
 
@@ -653,8 +673,6 @@ class Sudoku:
             for c in range(9):
                 if self.state[r][c]>0:
                     given_cells.add(r*9+c)
-                # else:
-                #     empty_cells.add(r*9+c)
 
         res = None
 
@@ -711,7 +729,7 @@ class Sudoku:
             #if we can change the resulting solution, generate a new board,
             #but keep the values of given cells
             if not keep_solution:
-                new_solutions = self.solve_board(True, False, 1)
+                new_solutions = self.solve_board(True, True, 1)
                 new_board = new_solutions[0]
                 self.state[r][c] = new_board[r][c]
                 if len(self.solve_board(False, False, 2)) == 1:
@@ -728,7 +746,7 @@ class Sudoku:
             for cell in empty_cells_list:
                 key_cells = self.find_key_cells(True)
                 for i in key_cells:
-                    if i in empty_cells:
+                    if i in empty_cells: #could be False, if some cellw were empty in the initial state
                         add_cell = i
                         break
 
@@ -759,5 +777,54 @@ class Sudoku:
 
         self.state = src_board
         return res
+
+    def generate_from_bottom(self, maxgiven=25):
+        board_bak = copy_state(self.state)
+        self.clear()
+        gc = set()
+        ec = set(range(81))
+        res = None
+
+        def generate(given_cells, empty_cells):
+            if len(given_cells) >= maxgiven:
+                return False
+
+            new_solutions = self.solve_board(True, False, 1)
+            new_board = new_solutions[0]
+            key_cells = self.find_key_cells(True)
+            rnd_iter = 1 + self.my_rng_range(3)
+            for i in range(min(rnd_iter, len(key_cells))):
+                add_cell = key_cells[i]
+                r = add_cell // 9
+                c = add_cell % 9
+
+                self.state[r][c] = new_board[r][c]
+                empty_cells.remove(add_cell)
+                given_cells.add(add_cell)
+
+                l = len(self.solve_board(False, False, 2))
+                if l == 1:
+                    nonlocal res
+                    res = copy_state(self.state)
+                    return True
+                elif l == 0:
+                    self.state[r][c] = 0
+                    empty_cells.add(add_cell)
+                    given_cells.remove(add_cell)
+                    continue
+                else:
+                    if generate(set(given_cells), set(empty_cells)):
+                        return True
+
+                self.state[r][c] = 0
+                empty_cells.add(add_cell)
+                given_cells.remove(add_cell)
+
+            return False
+
+        generate(gc, ec)
+        self.state = board_bak
+        return res
+
 
 init_bits2list_cache()
