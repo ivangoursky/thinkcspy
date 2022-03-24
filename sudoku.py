@@ -3,8 +3,9 @@ import random
 
 bits2list_cache = []
 bits2list_cache_l = []
+pointing_cache = []
 
-def init_bits2list_cache():
+def init_caches():
     for i in range(512):
         tmp = []
         for j in range(9):
@@ -333,26 +334,28 @@ class Sudoku:
                 return False
 
         #check for one in 3x3 square
-        value_positions = [0] * 9
-        for r in range(3):
-            for c in range(3):
-                cell_poss = bits2list_cache[poss[(sq_row * 3 + r) * 9 + (sq_col * 3 + c)]]
-                for val in cell_poss:
-                    value_positions[val - 1] = value_positions[val - 1] | (1 << (r * 3 + c))
+        for sq_row in range(3):
+            for sq_col in range(3):
+                value_positions = [0] * 9
+                for r in range(3):
+                    for c in range(3):
+                        cell_poss = bits2list_cache[poss[(sq_row * 3 + r) * 9 + (sq_col * 3 + c)]]
+                        for val in cell_poss:
+                            value_positions[val - 1] = value_positions[val - 1] | (1 << (r * 3 + c))
 
-        #print(value_positions)
+                #print(value_positions)
 
-        for val in range(9):
-            curval_pos = bits2list_cache[value_positions[val]]
-            if len(curval_pos) == 1:
-                cur = curval_pos[0] - 1
-                r = sq_row * 3 + cur // 3
-                c = sq_col * 3 + cur % 3
-                if bits2list_cache_l[poss[r * 9 + c]] != 1:
-                    poss[r * 9 + c] = 1 << val
-                    update_list.append((r, c))
-            elif len(curval_pos) == 0:
-                return False
+                for val in range(9):
+                    curval_pos = bits2list_cache[value_positions[val]]
+                    if len(curval_pos) == 1:
+                        cur = curval_pos[0] - 1
+                        r = sq_row * 3 + cur // 3
+                        c = sq_col * 3 + cur % 3
+                        if bits2list_cache_l[poss[r * 9 + c]] != 1:
+                            poss[r * 9 + c] = 1 << val
+                            update_list.append((r, c))
+                    elif len(curval_pos) == 0:
+                        return False
 
         #update conflicts for recently found cells with 1 possibility
         #print(len(update_list))
@@ -849,4 +852,4 @@ class Sudoku:
         return res
 
 
-init_bits2list_cache()
+init_caches()
