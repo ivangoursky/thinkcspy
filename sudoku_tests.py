@@ -56,6 +56,11 @@ def generate_annealing_and_test(sud, n, maxiter = 1000):
      sud.state=generate_random_filled_board(sud,1)[0]
      board = sud.generate_board_annealing(n, maxiter, False)
      test_board(board,1,n)
+     
+def generate_recursive_and_test(sud, n, maxcalls = 1000):
+     sud.state=generate_random_filled_board(sud,1)[0]
+     board = sud.generate_board_recursive(n, maxcalls, 10)
+     test_board(board,1,n)
 
 
 def generate_from_bottom_and_test(sud, n):
