@@ -1,9 +1,31 @@
 import random
-#import time
+import time
 
 bits2list_cache = []
 bits2list_cache_l = []
 pointing_cache = []
+
+def get_finger(n):
+    sq = [[0 for col in range(3)] for row in range(3)]
+    cnt = 0
+    cnt_row = [0] * 3
+    cnt_col = [0] * 3
+    for cell in bits2list_cache[n]:
+        r = (cell - 1) // 3
+        c = (cell - 1) % 3
+        sq[r][c] = 1
+        cnt += 1
+        cnt_row[r] += 1
+        cnt_col[c] += 1
+
+    if cnt in (2, 3):
+        for r in range(3):
+            if cnt_row[r] == cnt:
+                return(1, r)
+        for c in range(3):
+            if cnt_col[c] == cnt:
+                return(2, c)
+    return (0, 0)
 
 def init_caches():
     for i in range(512):
@@ -13,6 +35,9 @@ def init_caches():
                 tmp.append(j+1)
         bits2list_cache.append(tuple(tmp))
         bits2list_cache_l.append(len(tmp))
+
+    for i in range(512):
+        pointing_cache.append(get_finger(i))
 
 
 # def bits2list(n):
@@ -247,7 +272,111 @@ class Sudoku:
     #
     #     return True
 
-    def update_possibilities(self, poss, row, col):
+    def do_tricks(self, poss):
+        # check, if we have only one cell, were value is possible in a row, column, or 3x3 square
+        # check for "one in row"
+        while True:
+            update_list = []
+            for row in range(9):
+                value_positions = [0] * 9
+                for i in range(9):
+                    cell_poss = bits2list_cache[poss[row * 9 + i]]
+                    for val in cell_poss:
+                        value_positions[val - 1] = value_positions[val - 1] | (1 << i)
+
+                for val in range(9):
+                    curval_pos = bits2list_cache[value_positions[val]]
+                    if len(curval_pos) == 1:
+                        cur = curval_pos[0] - 1
+                        if bits2list_cache_l[poss[row * 9 + cur]] != 1:
+                            poss[row * 9 + cur] = 1 << val
+                            update_list.append((row, cur))
+                    elif len(curval_pos) == 0:
+                        return False
+
+            # check for "one in column"
+            for col in range(9):
+                value_positions = [0] * 9
+                for i in range(9):
+                    cell_poss = bits2list_cache[poss[i * 9 + col]]
+                    for val in cell_poss:
+                        value_positions[val - 1] = value_positions[val - 1] | (1 << i)
+
+                for val in range(9):
+                    curval_pos = bits2list_cache[value_positions[val]]
+                    if len(curval_pos) == 1:
+                        cur = curval_pos[0] - 1
+                        if bits2list_cache_l[poss[cur * 9 + col]] != 1:
+                            poss[cur * 9 + col] = 1 << val
+                            update_list.append((cur, col))
+                    elif len(curval_pos) == 0:
+                        return False
+
+            # check for one in 3x3 square
+            for sq_row in range(3):
+                for sq_col in range(3):
+                    value_positions = [0] * 9
+                    for r in range(3):
+                        for c in range(3):
+                            cell_poss = bits2list_cache[poss[(sq_row * 3 + r) * 9 + (sq_col * 3 + c)]]
+                            for val in cell_poss:
+                                value_positions[val - 1] = value_positions[val - 1] | (1 << (r * 3 + c))
+
+                    for val in range(9):
+                        curval_pos = bits2list_cache[value_positions[val]]
+                        if len(curval_pos) == 1:
+                            cur = curval_pos[0] - 1
+                            r = sq_row * 3 + cur // 3
+                            c = sq_col * 3 + cur % 3
+                            if bits2list_cache_l[poss[r * 9 + c]] != 1:
+                                poss[r * 9 + c] = 1 << val
+                                update_list.append((r, c))
+                        elif len(curval_pos) == 0:
+                            return False
+
+                        finger = pointing_cache[value_positions[val]]
+                        if finger[0] > 0:
+                            val_bit = 1 << val
+                            val_mask = ~val_bit
+                            if finger[0] == 1:
+                                r = sq_row * 3 + finger[1]
+                                for c in range(9):
+                                    if c // 3 != sq_col:
+                                        idx = r * 9 + c
+                                        if (poss[idx] & val_bit) != 0:
+                                            poss[idx] = poss[idx] & val_mask
+                                            l = bits2list_cache_l[poss[idx]]
+                                            if l == 0:
+                                                return False
+                                            elif l == 1:
+                                                update_list.append((r, c))
+                            elif finger[0] == 2:
+                                c = sq_col * 3 + finger[1]
+                                for r in range(9):
+                                    if r // 3 != sq_row:
+                                        idx = r * 9 + c
+                                        if (poss[idx] & val_bit) != 0:
+                                            poss[idx] = poss[idx] & val_mask
+                                            l = bits2list_cache_l[poss[idx]]
+                                            if l == 0:
+                                                return False
+                                            elif l == 1:
+                                                update_list.append((r, c))
+
+            if len(update_list) == 0:
+                return True
+
+            for (r,c) in update_list:
+                if not self.update_possibilities(poss, r, c, False):
+                    return False
+
+        if not nfish_check(poss):
+            return False
+
+        return True
+
+
+    def update_possibilities(self, poss, row, col, tricks):
         """ Update sets of possible values, after setting the cell at row and col.
         Return true if all updates were successful, and false if we met conflicts."""
         cur_val_bit = poss[row * 9 + col]
@@ -294,73 +423,14 @@ class Sudoku:
                         elif l == 1:
                             update_list.append((r, c))
 
-        #check, if we have only one cell, were value is possible in a row, column, or 3x3 square
-        #check for "one in row"
-        value_positions = [0] * 9
-        for i in range(9):
-            cell_poss = bits2list_cache[poss[row * 9 + i]]
-            for val in cell_poss:
-                value_positions[val - 1] = value_positions[val - 1] | (1 << i)
-
-        #print(value_positions)
-
-        for val in range(9):
-            curval_pos = bits2list_cache[value_positions[val]]
-            if len(curval_pos) == 1:
-                cur = curval_pos[0] - 1
-                if bits2list_cache_l[poss[row * 9 + cur]] != 1:
-                    poss[row * 9 + cur] = 1 << val
-                    update_list.append((row, cur))
-            elif len(curval_pos) == 0:
-                return False
-
-        #check for "one in column"
-        value_positions = [0] * 9
-        for i in range(9):
-            cell_poss = bits2list_cache[poss[i * 9 + col]]
-            for val in cell_poss:
-                value_positions[val - 1] = value_positions[val - 1] | (1 << i)
-
-        #print(value_positions)
-
-        for val in range(9):
-            curval_pos = bits2list_cache[value_positions[val]]
-            if len(curval_pos) == 1:
-                cur = curval_pos[0] - 1
-                if bits2list_cache_l[poss[cur * 9 + col]] != 1:
-                    poss[cur * 9 + col] = 1 << val
-                    update_list.append((cur, col))
-            elif len(curval_pos) == 0:
-                return False
-
-        #check for one in 3x3 square
-        for sq_row in range(3):
-            for sq_col in range(3):
-                value_positions = [0] * 9
-                for r in range(3):
-                    for c in range(3):
-                        cell_poss = bits2list_cache[poss[(sq_row * 3 + r) * 9 + (sq_col * 3 + c)]]
-                        for val in cell_poss:
-                            value_positions[val - 1] = value_positions[val - 1] | (1 << (r * 3 + c))
-
-                #print(value_positions)
-
-                for val in range(9):
-                    curval_pos = bits2list_cache[value_positions[val]]
-                    if len(curval_pos) == 1:
-                        cur = curval_pos[0] - 1
-                        r = sq_row * 3 + cur // 3
-                        c = sq_col * 3 + cur % 3
-                        if bits2list_cache_l[poss[r * 9 + c]] != 1:
-                            poss[r * 9 + c] = 1 << val
-                            update_list.append((r, c))
-                    elif len(curval_pos) == 0:
-                        return False
-
         #update conflicts for recently found cells with 1 possibility
         #print(len(update_list))
         for (r,c) in update_list:
-            if not self.update_possibilities(poss, r, c):
+            if not self.update_possibilities(poss, r, c, False):
+                return False
+
+        if tricks:
+            if not self.do_tricks(poss):
                 return False
 
         return True
@@ -376,8 +446,11 @@ class Sudoku:
         for r in range(9):
             for c in range(9):
                 if bits2list_cache_l[possibilities[r * 9 + c]] == 1:
-                    if not self.update_possibilities(possibilities, r, c):
+                    if not self.update_possibilities(possibilities, r, c, False):
                         return None
+
+        if not self.do_tricks(possibilities):
+            return None
 
         return possibilities
 
@@ -439,11 +512,7 @@ class Sudoku:
                 poss_bak = list(poss)
                 poss[r * 9 + c] = 1 << (i-1)
 
-                if not self.update_possibilities(poss, r, c):
-                    poss = poss_bak
-                    continue
-
-                if not nfish_check(poss):
+                if not self.update_possibilities(poss, r, c, True):
                     poss = poss_bak
                     continue
 
