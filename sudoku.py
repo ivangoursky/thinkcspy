@@ -73,6 +73,29 @@ def sudoku_state2str(state):
 def copy_state(state):
     return [[state[row][col] for col in range(9)] for row in range(9)]
 
+def nfish_check(poss):
+    nleft = [9] * 9
+    poss_cols = [0] * 9
+    poss_rows = [0] * 9
+    for r in range(9):
+        for c in range(9):
+            p = poss[r * 9 + c]
+            if bits2list_cache_l[p] == 1:
+                val = bits2list_cache[p][0]
+                nleft[val - 1] -= 1
+            else:
+                for val in bits2list_cache[p]:
+                    poss_rows[val - 1] = poss_rows[val - 1] | (1 << r)
+                    poss_cols[val - 1] = poss_cols[val - 1] | (1 << c)
+
+    for var in range(9):
+        if bits2list_cache_l[poss_rows[var]] < nleft[var]:
+            return False
+        if bits2list_cache_l[poss_cols[var]] < nleft[var]:
+            return False
+
+    return True
+
 
 class Sudoku:
     """ Class for 9x9 Sudoku board manipulation (standard rules) """
@@ -339,6 +362,7 @@ class Sudoku:
 
         return True
 
+
     def try_simple_solution(self):
         possibilities = [511] * 81
         for r in range(9):
@@ -413,6 +437,10 @@ class Sudoku:
                 poss[r * 9 + c] = 1 << (i-1)
 
                 if not self.update_possibilities(poss, r, c):
+                    poss = poss_bak
+                    continue
+
+                if not nfish_check(poss):
                     poss = poss_bak
                     continue
 
