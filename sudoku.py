@@ -122,6 +122,20 @@ def nfish_check(poss):
 
     return True
 
+def search_naked_pair(poss):
+    for i in range(9):
+        if bits2list_cache_l[poss[i]] == 2:
+            res = [i]
+            for j in range(i + 1, 9):
+                if poss[j] == poss[i]:
+                    res.append(j)
+            if len(res) == 2:
+                return res
+            elif len(res) > 2:
+                return None
+
+    return []
+
 
 class Sudoku:
     """ Class for 9x9 Sudoku board manipulation (standard rules) """
@@ -279,8 +293,11 @@ class Sudoku:
             update_list = []
             for row in range(9):
                 value_positions = [0] * 9
+                vals = [0] * 9
                 for i in range(9):
-                    cell_poss = bits2list_cache[poss[row * 9 + i]]
+                    p = poss[row * 9 + i]
+                    vals[i] = p
+                    cell_poss = bits2list_cache[p]
                     for val in cell_poss:
                         value_positions[val - 1] = value_positions[val - 1] | (1 << i)
 
@@ -294,11 +311,23 @@ class Sudoku:
                     elif len(curval_pos) == 0:
                         return False
 
+                np = search_naked_pair(vals)
+                if np is None:
+                    return False
+                elif len(np) == 2:
+                    np_mask = ~vals[np[0]]
+                    for i in range(9):
+                        if not (i in np):
+                            poss[row * 9 + i] = poss[row * 9 + i] & np_mask
+
             # check for "one in column"
             for col in range(9):
                 value_positions = [0] * 9
+                vals = [0] * 9
                 for i in range(9):
-                    cell_poss = bits2list_cache[poss[i * 9 + col]]
+                    p = poss[i * 9 + col]
+                    vals[i] = p
+                    cell_poss = bits2list_cache[p]
                     for val in cell_poss:
                         value_positions[val - 1] = value_positions[val - 1] | (1 << i)
 
@@ -312,13 +341,25 @@ class Sudoku:
                     elif len(curval_pos) == 0:
                         return False
 
+                np = search_naked_pair(vals)
+                if np is None:
+                    return False
+                elif len(np) == 2:
+                    np_mask = ~vals[np[0]]
+                    for i in range(9):
+                        if not (i in np):
+                            poss[i * 9 + col] = poss[i * 9 + col] & np_mask
+
             # check for one in 3x3 square
             for sq_row in range(3):
                 for sq_col in range(3):
                     value_positions = [0] * 9
+                    vals = [0] * 9
                     for r in range(3):
                         for c in range(3):
-                            cell_poss = bits2list_cache[poss[(sq_row * 3 + r) * 9 + (sq_col * 3 + c)]]
+                            p = poss[(sq_row * 3 + r) * 9 + (sq_col * 3 + c)]
+                            vals[r * 3 + c] = p
+                            cell_poss = bits2list_cache[p]
                             for val in cell_poss:
                                 value_positions[val - 1] = value_positions[val - 1] | (1 << (r * 3 + c))
 
@@ -362,6 +403,17 @@ class Sudoku:
                                                 return False
                                             elif l == 1:
                                                 update_list.append((r, c))
+
+                    np = search_naked_pair(vals)
+                    if np is None:
+                        return False
+                    elif len(np) == 2:
+                        np_mask = ~vals[np[0]]
+                        for i in range(9):
+                            if not (i in np):
+                                r = sq_row * 3 + i // 3
+                                c = sq_col * 3 + i % 3
+                                poss[r * 9 + c] = poss[r * 9 + c] & np_mask
 
             if len(update_list) == 0:
                 return True
