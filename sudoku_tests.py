@@ -49,6 +49,17 @@ def test_board(b, nsol = 1, ngiven = None):
     else:
         print("Test PASSED: this sudoku has exactly {0} solution(s)".format(nsol))
 
+    solutions2 = tst_sud.solve_board(False, False, 5, False)
+    if len(solutions) != len(solutions2):
+        print("Test FAILED: solve_board with and without tricks yields different number of solutions")
+    else:
+        print("Test PASSED: solve_board with and without tricks yields the same number of solutions")
+        if len(solutions) == 1:
+            if solutions[0] != solutions2[0]:
+                print("Test FAILED: solve_board with and without tricks yields different solutions")
+            else:
+                print("Test PASSED: solve_board with and without tricks yields the same solution")
+
     for s in solutions:
         print(sudoku_state2str(s))
 
@@ -97,7 +108,7 @@ if __name__ == "__main__":
 
     ngiven = 25
     print("Trying to generate sudoku's with {0} given, using recursive algorithm".format(ngiven))
-    for i in range(5):
+    for i in range(2):
         print("Iteration: ", i)
         solutions = generate_random_filled_board(sud, 1)
         sud.state = copy.deepcopy(solutions[0])
@@ -107,7 +118,7 @@ if __name__ == "__main__":
 
     ngiven = 21
     print("Trying to generate sudoku's with {0} given, using annealing, without keeping the solution".format(ngiven))
-    for i in range(5):
+    for i in range(2):
         print("Iteration: ", i)
         solutions = generate_random_filled_board(sud, 1)
         sud.state = copy.deepcopy(solutions[0])
@@ -116,7 +127,7 @@ if __name__ == "__main__":
 
     ngiven = 21
     print("Trying to generate sudoku's with {0} given, using annealing, with empty central 3x3 square".format(ngiven))
-    for i in range(3):
+    for i in range(2):
         print("Iteration: ", i)
         solutions = generate_random_filled_board(sud, 1)
         sud.state = copy.deepcopy(solutions[0])
@@ -126,11 +137,11 @@ if __name__ == "__main__":
         board = sud.generate_board_annealing(ngiven, 1000)  #
         test_board(board, 1, ngiven)
 
-    # ngiven = 20
-    # print("Trying to generate sudoku's with {0} given, using annealing, keeping solution".format(ngiven))
-    # for i in range(20):
-    #     print("Iteration: ", i)
-    #     solutions = generate_random_filled_board(sud, 1)
-    #     sud.state = copy.deepcopy(solutions[0])
-    #     board = sud.generate_board_annealing(ngiven, 1000)
-    #     test_board(board,1,ngiven)
+    ngiven = 20
+    print("Trying to generate sudoku's with {0} given, using annealing, without keeping solution".format(ngiven))
+    for i in range(3):
+        print("Iteration: ", i)
+        solutions = generate_random_filled_board(sud, 1)
+        sud.state = copy.deepcopy(solutions[0])
+        board = sud.generate_board_annealing(ngiven, 10000, False)
+        test_board(board,1,ngiven)

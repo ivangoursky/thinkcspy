@@ -122,19 +122,41 @@ def nfish_check(poss):
 
     return True
 
-def search_naked_pair(poss):
+def search_naked_pair_or_triplet(poss):
+    res = []
     for i in range(9):
-        if bits2list_cache_l[poss[i]] == 2:
-            res = [i]
+        l = bits2list_cache_l[poss[i]]
+        if l == 2:
+            found = [i]
             for j in range(i + 1, 9):
                 if poss[j] == poss[i]:
-                    res.append(j)
-            if len(res) == 2:
-                return res
-            elif len(res) > 2:
+                    found.append(j)
+            if len(found) == 2:
+                res.append(found)
+            elif len(found) > 2:
+                return None
+        elif l == 3:
+            found = [i]
+            for j in range(i + 1, 9):
+                if poss[j] == poss[i]:
+                    found.append(j)
+            if len(found) == 3:
+                res.append(found)
+            elif len(found) > 3:
                 return None
 
-    return []
+    return res
+
+
+def is_same_sq(np):
+    if len(np) == 2:
+        if (np[0] // 3) != (np[1] // 3):
+            return False
+    else:
+        if ((np[0] // 3) != (np[1] // 3)) or ((np[0] // 3) != (np[2] // 3)):
+            return False
+
+    return True
 
 
 class Sudoku:
@@ -271,21 +293,6 @@ class Sudoku:
 
         return True
 
-    # def remove_possibility(self, poss, row, col, cell_val_bit):
-    #     """Remove cell_val from the set of possible values of the cell at row and col,
-    #     save data for undo in the undo matrix.
-    #     In case only 1 possibility is left, call update_possibilities for that cells.
-    #     Return true if all updates were successful, and false if we met conflicts."""
-    #
-    #     poss[row][col] = poss[row][col] & (~cell_val_bit)
-    #     l = len(bits2list_cache[poss[row][col]])
-    #     if l == 0:
-    #         return False
-    #     elif l == 1:
-    #         return self.update_possibilities(poss, row, col)
-    #
-    #     return True
-
     def do_tricks(self, poss):
         # check, if we have only one cell, were value is possible in a row, column, or 3x3 square
         # check for "one in row"
@@ -311,14 +318,23 @@ class Sudoku:
                     elif len(curval_pos) == 0:
                         return False
 
-                np = search_naked_pair(vals)
-                if np is None:
+                npt = search_naked_pair_or_triplet(vals)
+                if npt is None:
                     return False
-                elif len(np) == 2:
+
+                for np in npt:
                     np_mask = ~vals[np[0]]
                     for i in range(9):
                         if not (i in np):
                             poss[row * 9 + i] = poss[row * 9 + i] & np_mask
+
+                    if is_same_sq(np):
+                        sq_row = row // 3
+                        sq_col = np[0] // 3
+                        for r in range(sq_row * 3, sq_row * 3 + 3):
+                            for c in range(sq_col *3, sq_col *3 + 3):
+                                if r != row:
+                                    poss[r * 9 + c] = poss[r * 9 + c] & np_mask
 
             # check for "one in column"
             for col in range(9):
@@ -341,14 +357,23 @@ class Sudoku:
                     elif len(curval_pos) == 0:
                         return False
 
-                np = search_naked_pair(vals)
-                if np is None:
+                npt = search_naked_pair_or_triplet(vals)
+                if npt is None:
                     return False
-                elif len(np) == 2:
+
+                for np in npt:
                     np_mask = ~vals[np[0]]
                     for i in range(9):
                         if not (i in np):
                             poss[i * 9 + col] = poss[i * 9 + col] & np_mask
+
+                    if is_same_sq(np):
+                        sq_row = np[0] // 3
+                        sq_col = col // 3
+                        for r in range(sq_row * 3, sq_row * 3 + 3):
+                            for c in range(sq_col *3, sq_col *3 + 3):
+                                if c != col:
+                                    poss[r * 9 + c] = poss[r * 9 + c] & np_mask
 
             # check for one in 3x3 square
             for sq_row in range(3):
@@ -404,10 +429,11 @@ class Sudoku:
                                             elif l == 1:
                                                 update_list.append((r, c))
 
-                    np = search_naked_pair(vals)
-                    if np is None:
+                    npt = search_naked_pair_or_triplet(vals)
+                    if npt is None:
                         return False
-                    elif len(np) == 2:
+
+                    for np in npt:
                         np_mask = ~vals[np[0]]
                         for i in range(9):
                             if not (i in np):
@@ -488,7 +514,7 @@ class Sudoku:
         return True
 
 
-    def try_simple_solution(self):
+    def try_simple_solution(self,tricks = True):
         possibilities = [511] * 81
         for r in range(9):
             for c in range(9):
@@ -501,12 +527,13 @@ class Sudoku:
                     if not self.update_possibilities(possibilities, r, c, False):
                         return None
 
-        if not self.do_tricks(possibilities):
-            return None
+        if tricks:
+            if not self.do_tricks(possibilities):
+                return None
 
         return possibilities
 
-    def solve_board(self, shuffle_idx=True, shuffle_possibilities=True, nsolutions=1):
+    def solve_board(self, shuffle_idx=True, shuffle_possibilities=True, nsolutions=1, tricks=True):
         """ Find solution(s) for the board"""
 
         def try_cell(n, poss):
@@ -564,7 +591,7 @@ class Sudoku:
                 poss_bak = list(poss)
                 poss[r * 9 + c] = 1 << (i-1)
 
-                if not self.update_possibilities(poss, r, c, True):
+                if not self.update_possibilities(poss, r, c, tricks):
                     poss = poss_bak
                     continue
 
@@ -598,7 +625,7 @@ class Sudoku:
             res.append(copy_state(self.state))
             return res
 
-        possibilities = self.try_simple_solution()
+        possibilities = self.try_simple_solution(tricks)
         #t1 = time.time()
 
         if possibilities is None:
