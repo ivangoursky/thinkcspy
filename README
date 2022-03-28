@@ -1,0 +1,14 @@
+sudoku_game.py
+Python program to generate and play sudoku puzzles.
+
+Mouse and keyboard shortcuts:
+        Mouse click - select cell
+        ESC - cancel selection
+        a - solve the field
+        c - reset field
+        h - display this help
+        n - create new field
+        p - toggle "display possibilities" mode
+        r - specify random number generator seed
+        0 - clear selected cell
+        1,2,3,4,5,6,7,8,9 - put corresponding value to the selected cell
